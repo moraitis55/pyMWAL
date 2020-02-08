@@ -12,7 +12,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
+#LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
 LOAD_MODEL = None
 
 # DQN settings
@@ -286,20 +286,20 @@ class DQNAgent:
             print("Model {0} loaded!".format(LOAD_MODEL))
         else:
             model = Sequential()
-            model.add(Conv2D(256, (3, 3), input_shape=env.OBSERVATION_SHAPE_VALUES))
+            model.add(Conv2D(256, (3, 3), input_shape=env.OBSERVATION_SPACE_VALUES))
             model.add(Activation("relu"))
             model.add(MaxPooling2D(2, 2))
             model.add(Dropout(0.2))
 
-            model.add(Conv2D(256, (3, 3), input_shape=env.OBSERVATION_SHAPE_VALUES))
+            model.add(Conv2D(256, (3, 3), input_shape=env.OBSERVATION_SPACE_VALUES))
             model.add(Activation("relu"))
             model.add(MaxPooling2D(2, 2))
             model.add(Dropout(0.2))
 
-            model.add(Flatten)
+            model.add(Flatten())
             model.add((Dense(64)))
 
-            model.add(Dense(env.ACTION_SHAPE_SIZE, activation="linear"))
+            model.add(Dense(env.ACTION_SPACE_SIZE, activation="linear"))
             model.compile(loss=LOSS_FUNCTION, optimizer=Adam(lr=LEARNING_RATE), metrics=['accuracy'])
         return model
 
