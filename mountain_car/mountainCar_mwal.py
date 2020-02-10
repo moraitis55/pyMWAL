@@ -1,7 +1,7 @@
 import math
 
 
-class MountainCar_MWAL:
+class MWAL_Agent:
 
     def __init__(self, k, episodes, gamma, W):
         self.episodes = episodes  # training episodes

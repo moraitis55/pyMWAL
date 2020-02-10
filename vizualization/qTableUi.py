@@ -1,6 +1,6 @@
 import threading
 import tkinter as tk
-from mountain_cal.mountainCar_Q import  MountainCar_Q as mc
+from mountain_car.mountainCar_Q import  MountainCar_Q as mc
 
 class QTableUi():
     global tableUpdated
