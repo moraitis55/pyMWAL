@@ -192,7 +192,7 @@ ep_rewards = [-200]
 # For more repetitive results
 random.seed(1)
 np.random.seed(1)
-tf.set_random_seed(1)
+tf.random.set_seed(1)
 
 # Memory fraction, used mostly when trai8ning multiple agents
 # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=MEMORY_FRACTION)
@@ -218,7 +218,8 @@ class ModifiedTensorBoard(TensorBoard):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.step = 1
-        self.writer = tf.summary.FileWriter(self.log_dir)
+        #self.writer = tf.summary.FileWriter(self.log_dir)
+        self.writer = tf.summary.create_file_writer(self.log_dir)
 
     # Overriding this method to stop creating default log writer
     def set_model(self, model):
@@ -237,6 +238,14 @@ class ModifiedTensorBoard(TensorBoard):
     # Overrided, so won't close writer
     def on_train_end(self, _):
         pass
+
+    # Custom method to write logs (tensorflow 2.0)
+    def _write_logs(self, logs, index):
+        with self.writer.as_default():
+            for name, value in logs.items():
+                tf.summary.scalar(name, value, step=index)
+                self.step +=1
+                self.writer.flush()
 
     # Custom method for saving own metrics
     # Creates writer, writes custom metrics and closes writer
@@ -425,11 +434,16 @@ for episode in tqdm(range(1, EPISODES + 1), unit="episode"):
             # Save model, but only when min reward is greater or equal a set value
             if min_reward >= MIN_REWARD:
                 agent.model.save(
-                    # f'models/{MODEL_NAME}__{max_reward:_>7.2f}max_{average_reward:_>7.2f}avg_{min_reward:_>7.2f}min__{int(time.time())}.model')
-                    'models/{0}____{1}max____{2}avg____{3}min__{4}.model'.format(MODEL_NAME, max_reward, average_reward,
+                    'models/pass1/{0}____{1}max____{2}avg____{3}min__{4}.model'.format(MODEL_NAME, max_reward, average_reward,
                                                                          min_reward, int(time.time())))
 
                 # Decay epsilon
         if epsilon > MIN_EPSILON:
             epsilon *= EPSILON_DECAY
             epsilon = max(MIN_EPSILON, epsilon)
+
+
+
+
+
+
