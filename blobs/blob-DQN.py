@@ -3,7 +3,6 @@ from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatt
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 from collections import deque
-from PIL import Image
 from tqdm import tqdm
 import time
 import random
@@ -11,8 +10,9 @@ import cv2
 import os
 import numpy as np
 import tensorflow as tf
+from blobs.blob_env import BlobEnv
 
-#LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
+# LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
 LOAD_MODEL = None
 
 # DQN settings
@@ -43,146 +43,6 @@ MIN_EPSILON = 0.001
 AGGREGATE_STATS_EVERY = 50  # every episodes to aggregate
 RENDER_EVERY = 50
 SHOW_PREVIEW = False  # see visuals of everything running
-
-
-class Blob:
-    def __init__(self, size):
-        self.size = size
-        self.x = np.random.randint(0, size)
-        self.y = np.random.randint(0, size)
-
-    def __str__(self):
-        return "Blob ({0}, {1})".format(self.x, self.y)
-
-    def __sub__(self, other):
-        return self.x - other.x, self.y - other.y
-
-    def __eq__(self, other):
-        return self.x == other.x and self.y == other.y
-
-    def action(self, choice):
-        """
-        Gives us 9 total movement options. (0,1,2,3,4,5,6,7,8)
-        """
-        if choice == 0:
-            self.move(x=1, y=1)
-        elif choice == 1:
-            self.move(x=-1, y=-1)
-        elif choice == 2:
-            self.move(x=-1, y=1)
-        elif choice == 3:
-            self.move(x=1, y=-1)
-        elif choice == 4:
-            self.move(x=1, y=0)
-        elif choice == 5:
-            self.move(x=-1, y=0)
-        elif choice == 6:
-            self.move(x=0, y=1)
-        elif choice == 7:
-            self.move(x=0, y=-1)
-        elif choice == 8:
-            self.move(x=0, y=0)
-
-    def move(self, x=False, y=False):
-
-        # If no value for x, move randomly
-        if not x:
-            self.x += np.random.randint(-1, 2)
-        else:
-            self.x += x
-
-        # If no value for y, move randomly
-        if not y:
-            self.y += np.random.randint(-1, 2)
-        else:
-            self.y += y
-
-        # If we are out of bounds, fix!
-        if self.x < 0:
-            self.x = 0
-        elif self.x > self.size - 1:
-            self.x = self.size - 1
-        if self.y < 0:
-            self.y = 0
-        elif self.y > self.size - 1:
-            self.y = self.size - 1
-
-
-class BlobEnv:
-    SIZE = 10
-    RETURN_IMAGES = True
-    MOVE_PENALTY = 1
-    ENEMY_PENALTY = 300
-    FOOD_REWARD = 25
-    OBSERVATION_SPACE_VALUES = (SIZE, SIZE, 3)  # 4
-    ACTION_SPACE_SIZE = 9
-    PLAYER_N = 1  # player key in dict
-    FOOD_N = 2  # food key in dict
-    ENEMY_N = 3  # enemy key in dict
-    # the dict! (colors)
-    d = {1: (255, 175, 0),
-         2: (0, 255, 0),
-         3: (0, 0, 255)}
-
-    def reset(self):
-        self.player = Blob(self.SIZE)
-        self.food = Blob(self.SIZE)
-        while self.food == self.player:
-            self.food = Blob(self.SIZE)
-        self.enemy = Blob(self.SIZE)
-        while self.enemy == self.player or self.enemy == self.food:
-            self.enemy = Blob(self.SIZE)
-
-        self.episode_step = 0
-
-        if self.RETURN_IMAGES:
-            observation = np.array(self.get_image())
-        else:
-            observation = (self.player - self.food) + (self.player - self.enemy)
-        return observation
-
-    def step(self, action):
-        self.episode_step += 1
-        self.player.action(action)
-
-        #### MAYBE ###
-        # self.enemy.move()
-        # self.food.move()
-        ##############
-
-        if self.RETURN_IMAGES:
-            new_observation = np.array(self.get_image())
-        else:
-            new_observation = (self.player - self.food) + (self.player - self.enemy)
-
-        if self.player == self.enemy:
-            reward = -self.ENEMY_PENALTY
-        elif self.player == self.food:
-            reward = self.FOOD_REWARD
-        else:
-            reward = -self.MOVE_PENALTY
-
-        done = False
-        if reward == self.FOOD_REWARD or reward == -self.ENEMY_PENALTY or self.episode_step >= 200:
-            done = True
-
-        return new_observation, reward, done
-
-    def render(self):
-        img = self.get_image()
-        img = img.resize((300, 300))  # resizing so we can see our agent in all its glory.
-        cv2.imshow("image", np.array(img))  # show it!
-        cv2.waitKey(1)
-
-    # FOR CNN #
-    def get_image(self):
-        env = np.zeros((self.SIZE, self.SIZE, 3), dtype=np.uint8)  # starts an rbg of our size
-        env[self.food.x][self.food.y] = self.d[self.FOOD_N]  # sets the food location tile to green color
-        env[self.enemy.x][self.enemy.y] = self.d[self.ENEMY_N]  # sets the enemy location to red
-        env[self.player.x][self.player.y] = self.d[self.PLAYER_N]  # sets the player tile to blue
-        img = Image.fromarray(env, 'RGB')  # reading to rgb. Apparently. Even tho color definitions are bgr. ???
-        return img
-
 
 env = BlobEnv()
 
@@ -218,7 +78,7 @@ class ModifiedTensorBoard(TensorBoard):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.step = 1
-        #self.writer = tf.summary.FileWriter(self.log_dir)
+        # self.writer = tf.summary.FileWriter(self.log_dir)
         self.writer = tf.summary.create_file_writer(self.log_dir)
 
     # Overriding this method to stop creating default log writer
@@ -244,7 +104,7 @@ class ModifiedTensorBoard(TensorBoard):
         with self.writer.as_default():
             for name, value in logs.items():
                 tf.summary.scalar(name, value, step=index)
-                self.step +=1
+                self.step += 1
                 self.writer.flush()
 
     # Custom method for saving own metrics
@@ -281,7 +141,7 @@ class DQNAgent:
         self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
 
         # use this to decide when to update the target model
-        self.tensorboard = ModifiedTensorBoard(log_dir="logs/{0}-{1}".format(MODEL_NAME, int(time.time())))
+        self.tensorboard = ModifiedTensorBoard(log_wir_dir="logs/{0}-{1}".format(MODEL_NAME, int(time.time())))
 
         self.target_update_counter = 0
 
@@ -434,16 +294,11 @@ for episode in tqdm(range(1, EPISODES + 1), unit="episode"):
             # Save model, but only when min reward is greater or equal a set value
             if min_reward >= MIN_REWARD:
                 agent.model.save(
-                    'models/pass1/{0}____{1}max____{2}avg____{3}min__{4}.model'.format(MODEL_NAME, max_reward, average_reward,
-                                                                         min_reward, int(time.time())))
+                    'models/pass1/{0}____{1}max____{2}avg____{3}min__{4}.model'.format(MODEL_NAME, max_reward,
+                                                                                       average_reward,
+                                                                                       min_reward, int(time.time())))
 
                 # Decay epsilon
         if epsilon > MIN_EPSILON:
             epsilon *= EPSILON_DECAY
             epsilon = max(MIN_EPSILON, epsilon)
-
-
-
-
-
-
