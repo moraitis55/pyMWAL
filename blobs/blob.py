@@ -50,8 +50,6 @@ class Blob:
                 self.move(x=-1, y=1)
             elif choice == 3:
                 self.move(x=1, y=-1)
-            elif choice == 4:
-                self.move(x=1, y=0)
 
 
     def move(self, x=False, y=False):

@@ -10,7 +10,7 @@ import cv2
 import os
 import numpy as np
 import tensorflow as tf
-from blobs.blob_env import BlobEnv
+from blobs.blob_environment import BlobEnv
 
 # LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
 LOAD_MODEL = None
@@ -44,7 +44,7 @@ AGGREGATE_STATS_EVERY = 50  # every episodes to aggregate
 RENDER_EVERY = 50
 SHOW_PREVIEW = False  # see visuals of everything running
 
-env = BlobEnv()
+env = BlobEnv(allow_vertical_movement=True)
 
 # For stats
 ep_rewards = [-200]
@@ -155,12 +155,12 @@ class DQNAgent:
             print("Model {0} loaded!".format(LOAD_MODEL))
         else:
             model = Sequential()
-            model.add(Conv2D(256, (3, 3), input_shape=env.OBSERVATION_SPACE_VALUES))
+            model.add(Conv2D(256, (3, 3), input_shape=env.observation_space_values))
             model.add(Activation("relu"))
             model.add(MaxPooling2D(2, 2))
             model.add(Dropout(0.2))
 
-            model.add(Conv2D(256, (3, 3), input_shape=env.OBSERVATION_SPACE_VALUES))
+            model.add(Conv2D(256, (3, 3), input_shape=env.observation_space_values))
             model.add(Activation("relu"))
             model.add(MaxPooling2D(2, 2))
             model.add(Dropout(0.2))
@@ -168,7 +168,7 @@ class DQNAgent:
             model.add(Flatten())
             model.add((Dense(64)))
 
-            model.add(Dense(env.ACTION_SPACE_SIZE, activation="linear"))
+            model.add(Dense(env.action_space_size, activation="linear"))
             model.compile(loss=LOSS_FUNCTION, optimizer=Adam(lr=LEARNING_RATE), metrics=['accuracy'])
         return model
 
@@ -265,7 +265,7 @@ for episode in tqdm(range(1, EPISODES + 1), unit="episode"):
             action = np.argmax(agent.get_qs(current_state))
         else:
             # Get random action
-            action = np.random.randint(0, env.ACTION_SPACE_SIZE)
+            action = np.random.randint(0, env.action_space_size)
 
         new_state, reward, done = env.step(action)
 

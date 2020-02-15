@@ -13,19 +13,21 @@ class BlobEnv:
          2: (0, 255, 0),
          3: (0, 0, 255)}
 
-    def __init__(self, size=10, allow_vertical_movement=False, move_penalty=1, enemy_penalty=300,
-                 food_reward=25, return_images=True):
+    def __init__(self, size=10, allow_vertical_movement=False, move_penalty=1, enemy_penalty=-300,
+                 food_reward=25, return_images=True, enable_enemy_move=False, enable_food_move=False):
         self.size = size
         self.vertical_movement = allow_vertical_movement
         self.move_penalty = move_penalty
         self.enemy_penalty = enemy_penalty
         self.food_reward = food_reward
+        self.enemy_move = enable_enemy_move
+        self.food_move = enable_food_move
         self.return_images = return_images
         self.observation_space_values = (size, size, 3)  # 4
         if allow_vertical_movement:
             self.action_space_size = 9
         else:
-            self.action_space_size = 5
+            self.action_space_size = 4
 
     def reset(self):
         self.player = Blob(self.size, self.vertical_movement)
@@ -48,10 +50,10 @@ class BlobEnv:
         self.episode_step += 1
         self.player.action(action)
 
-        #### MAYBE ###
-        # self.enemy.move()
-        # self.food.move()
-        ##############
+        if self.enemy_move:
+         self.enemy.move()
+        if self.food_move:
+         self.food.move()
 
         if self.return_images:
             new_observation = np.array(self.get_image())
