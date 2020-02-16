@@ -13,9 +13,10 @@ class BlobEnv:
          2: (0, 255, 0),
          3: (0, 0, 255)}
 
-    def __init__(self, size=10, allow_vertical_movement=False, move_penalty=1, enemy_penalty=-300,
+    def __init__(self, episode_steps=200, size=10, allow_vertical_movement=False, move_penalty=-1, enemy_penalty=-300,
                  food_reward=25, return_images=True, enable_enemy_move=False, enable_food_move=False):
         self.size = size
+        self.episode_steps = episode_steps
         self.vertical_movement = allow_vertical_movement
         self.move_penalty = move_penalty
         self.enemy_penalty = enemy_penalty
@@ -43,7 +44,7 @@ class BlobEnv:
         if self.return_images:
             observation = np.array(self.get_image())
         else:
-            observation = (self.player - self.food) + (self.player - self.enemy)
+            observation = (self.player - self.food) , (self.player - self.enemy)
         return observation
 
     def step(self, action):
@@ -58,26 +59,26 @@ class BlobEnv:
         if self.return_images:
             new_observation = np.array(self.get_image())
         else:
-            new_observation = (self.player - self.food) + (self.player - self.enemy)
+            new_observation = (self.player - self.food) , (self.player - self.enemy)
 
         if self.player == self.enemy:
-            reward = -self.enemy_penalty
+            reward = self.enemy_penalty
         elif self.player == self.food:
             reward = self.food_reward
         else:
-            reward = -self.move_penalty
+            reward = self.move_penalty
 
         done = False
-        if reward == self.food_reward or reward == -self.enemy_penalty or self.episode_step >= 200:
+        if reward == self.food_reward or reward == self.enemy_penalty or self.episode_step == self.episode_steps - 1:
             done = True
 
         return new_observation, reward, done
 
-    def render(self):
+    def render(self, wait=1):
         img = self.get_image()
         img = img.resize((300, 300))  # resizing so we can see our agent in all its glory.
         cv2.imshow("image", np.array(img))  # show it!
-        cv2.waitKey(1)
+        cv2.waitKey(wait)
 
     # FOR CNN #
     def get_image(self):
