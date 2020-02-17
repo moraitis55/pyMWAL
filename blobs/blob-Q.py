@@ -1,31 +1,50 @@
+import os
 import time
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from blobs.blob_environment import BlobEnv
 from matplotlib import style
+from statistics import mean
 import pandas as pd
 
 style.use("ggplot")
 
 
 class BlobQAgent:
-    def __init__(self, loadQtable: str = None, blob_env_size=10, steps=200, episodes=25000, stats_every=3000,
-                 enable_render=True, render_every=3000, epsilon=0.9, epsilon_decay=0.9998, lr=0.1, discount=0.95,
-                 checkpoint_name=None, silence=False):
+
+    def __init__(self, observe_mode=False, loadQtable: str = None, blob_env_size=10, steps=200, episodes=25000,
+                 stats_every=3000, enable_render=True, render_every=None, render_wait=250, epsilon=0.9,
+                 epsilon_decay=0.9998, lr=0.1, discount=0.95, checkpoint_name=None, silence=False, fr=25, ep=-300,
+                 mp=-1):
+        self.observe = observe_mode
         self.loadQ = loadQtable
         self.t = steps
         self.learning_rate = lr
         self.discount = discount
         self.episodes = episodes
-        self.blob_env_size = blob_env_size
-        self.stats_every = stats_every
-        self.enable_render = enable_render
         self.render_every = render_every
-        self.epsilon = epsilon
-        self.epsDecay = epsilon_decay
-        self.checkpoint_name = checkpoint_name
+        self.render_wait = render_wait
         self._silent = silence
+
+        # environment variables
+        self.blob_env_size = blob_env_size
+        self.food_reward = fr
+        self.enemy_penalty = ep
+        self.move_penalty = mp
+
+        if observe_mode:  # in observe mode we don't need exploration
+            self.epsilon = 0
+            self.epsDecay = 0
+            self.checkpoint_name = None
+            self.stats_every = None
+            self.enable_render = False
+        else:
+            self.epsilon = epsilon
+            self.epsDecay = epsilon_decay
+            self.checkpoint_name = checkpoint_name
+            self.stats_every = stats_every
+            self.enable_render = enable_render
 
         self.Q = self._createQtable()
 
@@ -41,7 +60,7 @@ class BlobQAgent:
                             # tuples because the observation of the environment includes the deltas btw player-food, player-enemy
                             # this will be like (delta_x_fromFood, delta_y_fromFood), (delta_x_fromEnemy, delta_y_fromEnemy)
         else:
-            with open(self.loadQ, "rb") as f:
+            with open(os.path.join("Q_checkpoints", self.loadQ + ".pickle"), "rb") as f:
                 q_table = pickle.load(f)
         return q_table
 
@@ -59,20 +78,28 @@ class BlobQAgent:
 
     def run(self):
 
-        env = BlobEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t)
+        if self.observe:
+            tranjectory_collection = []
+
+        env = BlobEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t,
+                      move_penalty=self.move_penalty, enemy_penalty=self.enemy_penalty, food_reward=self.food_reward)
 
         episode_rewards = []
+        episode_successes = []
+        success_counter = 0
         for episode in range(self.episodes):
+            env.reset()
 
-            if episode % self.stats_every == 0 and episode > 0:
+            if self.stats_every and episode % self.stats_every == 0 and episode > 0:
                 self._printWindowStats(episode_rewards, episode)
 
             self._printif("====+====+====+====+====+====+====+====+====")
             self._printif("|-- Episode {} starting.".format(episode))
 
-            obs = env.reset()
             total_reward = 0
+            total_success = 0
             for step in range(self.t):
+                obs = (env.player - env.food, env.player - env.enemy)
 
                 if np.random.random() > self.epsilon:  # choose action based on epsilon
                     action = np.argmax(self.Q[obs])
@@ -80,6 +107,9 @@ class BlobQAgent:
                     action = np.random.randint(0, env.action_space_size)  # 4 if vertical movement not allowed
 
                 new_observation, reward, done = env.step(action)
+
+                if self.observe:
+                    tranjectory_collection.append((obs, action, reward, done))
 
                 max_future_q = np.max(self.Q[new_observation])
                 current_q = self.Q[obs][action]
@@ -96,11 +126,11 @@ class BlobQAgent:
                 self.Q[obs][action] = new_q  # update Q value
 
                 ################### RENDER #######################################
-                if self.enable_render and episode % self.render_every == 0:
+                if self.render_every and episode % self.render_every == 0:
                     if reward == env.food_reward or reward == env.enemy_penalty:
-                        env.render(wait=800)  # freeze the image to make it easy for the viewer
+                        env.render(wait=self.render_wait + 400)  # freeze the image to make it easy for the viewer
                     else:
-                        env.render(250)
+                        env.render(wait=self.render_wait)
                 ##################################################################
 
                 total_reward += reward
@@ -111,6 +141,8 @@ class BlobQAgent:
                 if done:
                     if reward == env.food_reward:
                         result = "\t\t< SUCCESS! >"
+                        success_counter += 1
+                        total_success += 1
                     elif reward == env.enemy_penalty:
                         result = "\t\t< FAILURE! >"
                     else:
@@ -119,20 +151,66 @@ class BlobQAgent:
                     break
 
             episode_rewards.append(total_reward)
+            episode_successes.append(total_success)
             self.epsilon *= self.epsDecay
 
-        moving_avg = np.convolve(episode_rewards, np.ones((self.stats_every,)) / self.stats_every, mode="valid")
-
-        plt.plot([i for i in range(len(moving_avg))], moving_avg)
-        plt.ylabel("Reward in {0} episodes window".format(str(self.stats_every)))
-        plt.xlabel("Episode")
-        plt.show()
+        self.model_avg_reward = round(mean(episode_rewards), 2)
+        self.model_success_rate = success_counter / (self.episodes)
 
         if self.checkpoint_name:
-            with open("Q_checkpoints/" + self.checkpoint_name + "-" + str(int(time.time())) + ".pickle",
-                      "wb") as f:
+            env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
+                                                                    self.food_reward, self.enemy_penalty,
+                                                                    self.move_penalty)
+            out_name = "Q_checkpoints/" + env_string + self.checkpoint_name + "__avg__" + str(
+                self.model_avg_reward) + "__success rate__" + str(self.model_success_rate)
+            fig_out_name = "Q_checkpoints/figures/" + env_string + self.checkpoint_name + "__avg__" + str(
+                self.model_avg_reward) + "__success rate__" + str(self.model_success_rate)
+            with open(out_name + ".pickle", "wb") as f:
                 pickle.dump(self.Q, f)
 
+        if self.stats_every:
 
-agent = BlobQAgent(checkpoint_name='pass1', blob_env_size=10, enable_render=False, episodes=25000, stats_every=3000, silence=True)
-agent.run()
+            moving_avg_reward = np.convolve(episode_rewards, np.ones((self.stats_every,)) / self.stats_every,
+                                            mode="valid")
+            plt.plot([i for i in range(len(moving_avg_reward))], moving_avg_reward)
+            plt.ylabel("Average reward in {0} episodes window".format(str(self.stats_every)))
+            plt.xlabel("Episode")
+            if fig_out_name:  # save figure
+                name = fig_out_name + "__rewardChart" + ".png"
+                plt.savefig(name, bbox_inches='tight')
+            plt.show()
+
+            moving_avg_success = np.convolve(episode_successes, np.ones((self.stats_every,)) / self.stats_every,
+                                             mode="valid")
+            plt.plot([i for i in range(len(moving_avg_success))], moving_avg_success)
+            plt.ylabel("Average successes in {0} episodes window".format(str(self.stats_every)))
+            plt.xlabel("Episode")
+            if fig_out_name:  # save figure
+                name = fig_out_name + "__suceessChart" + '.png'
+                plt.savefig(name, bbox_inches='tight')
+            plt.show()
+
+        if self.observe:
+            return tranjectory_collection
+
+
+def collect_trajectories():
+    checkpoint_name = 'pass1-1581803367.pickle'
+    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint_name, episodes=3)
+    observations = agent.run()
+
+    out_file = os.path.join("expert_trajectories", checkpoint_name + "_SN" + str(agent.episodes * agent.t) + ".txt")
+    with open(out_file, 'wb') as fp:
+        pickle.dump(observations, fp)
+
+
+def inspect_model(model, render_wait=250):
+    agent = BlobQAgent(loadQtable=model, render_wait=render_wait, render_every=1, episodes=100000, epsilon=0)
+    agent.run()
+
+
+# agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, blob_env_size=10, loadQtable="10x50000x200x__re(25, -300, -1)__pass3__avg__-0.04__success rate__0.96318")
+# agent.run()
+
+# collect_trajectories()
+inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)

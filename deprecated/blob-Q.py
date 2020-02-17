@@ -137,7 +137,7 @@ for episode in range(HM_EPISODES):
             reward = -MOVE_PENALTY
 
         new_obs = (player - food, player - enemy)
-        max_future_q = np.max(q_table[new_obs])
+        max_future_Q = np.max(q_table[new_obs])
         current_q = q_table[obs][action]
 
         #   update q-table

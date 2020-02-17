@@ -44,7 +44,7 @@ class BlobEnv:
         if self.return_images:
             observation = np.array(self.get_image())
         else:
-            observation = (self.player - self.food) , (self.player - self.enemy)
+            observation = (self.player - self.food, self.player - self.enemy)
         return observation
 
     def step(self, action):
@@ -59,7 +59,7 @@ class BlobEnv:
         if self.return_images:
             new_observation = np.array(self.get_image())
         else:
-            new_observation = (self.player - self.food) , (self.player - self.enemy)
+            new_observation = (self.player - self.food, self.player - self.enemy)
 
         if self.player == self.enemy:
             reward = self.enemy_penalty
