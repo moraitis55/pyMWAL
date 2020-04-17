@@ -10,7 +10,7 @@ import cv2
 import os
 import numpy as np
 import tensorflow as tf
-from blobs.blob_environment import BlobEnv
+from blobs.wumpus_environment import BlobEnv
 
 # LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
 LOAD_MODEL = None
