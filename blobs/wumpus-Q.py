@@ -1,3 +1,4 @@
+import csv
 import math
 import os
 import time
@@ -41,6 +42,11 @@ class BlobQAgent:
             self.checkpoint_name = None
             self.stats_every = None
             self.enable_render = False
+            self.df = pd.DataFrame(
+                columns=['episode', 'step', 'state_player', 'state_food', 'state_enemy',
+                         'euclid_food',
+                         'euclid_enemy', 'feats', 'action', 'reward'])
+            self.append_list = []
         else:
             self.epsilon = epsilon
             self.epsDecay = epsilon_decay
@@ -79,47 +85,34 @@ class BlobQAgent:
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
     def _collect_trajectory_data(self, step, episode, action, reward, obs, env):
-        euclidean_dist = (
-            math.sqrt(pow(obs[0][0], 2) + pow(obs[0][1], 2)),
-            math.sqrt(pow(obs[1][0], 2) + pow(obs[1][1], 2)))
+        euclidean_dist_food = math.sqrt(pow(obs[0][0], 2) + pow(obs[0][1], 2))
+        euclidean_dist_enemy = math.sqrt(pow(obs[1][0], 2) + pow(obs[1][1], 2))
 
         # when distance from food is getting smaller we want the feature to have better price.
         # also when the distance from the enemy is getting bigger we want the feature to have better price.
-        # add euclidean_dist + 1 in order to avoid dividing by zero
-        if step == 0:
-            # tranjectory_collection[episode] = {"states": [(env.player, env.food, env.enemy)],
-            #                                    "actions": [action],
-            #                                    "feats": {"fd": [1 / (euclidean_dist[0] + 1)],
-            #                                              "ed": [euclidean_dist[1] / env.size]},
-            #                                    "rewards": [reward / -env.enemy_penalty]}  # normalize reward
-            trajectory_collection[episode] = {
-                "states": {
-                    "player": [(env.player.x, env.player.y)],
-                    "food": [(env.food.x, env.food.y)],
-                    "enemy": [(env.enemy.x, env.enemy.y)]
-                },
-                "obs": [euclidean_dist],
-                "actions": [action],
-                "feats": {"fxd": [1 / (math.sqrt(abs(obs[0][0]) + 1))],
-                          "fyd": [1 / (math.sqrt(abs(obs[0][1]) + 1))],
-                          "exd": [abs(obs[1][0]) / (env.size - 1)],
-                          "eyd": [abs(obs[1][1]) / (env.size - 1)]},
-                "rewards": [reward / -env.enemy_penalty]}  # normalize reward
-        else:
-            trajectory_collection[episode]["states"]["player"].append((env.player.x, env.player.y)),
-            trajectory_collection[episode]["states"]["food"].append((env.food.x, env.food.y)),
-            trajectory_collection[episode]["states"]["enemy"].append((env.enemy.x, env.enemy.y)),
-            trajectory_collection[episode]["obs"].append(euclidean_dist)
-            trajectory_collection[episode]["actions"].append(action)
-            # tranjectory_collection[episode]["feats"]["fd"].append(1 / euclidean_dist[0])
-            # tranjectory_collection[episode]["feats"]["ed"].append(euclidean_dist[1] / env.size)
-            trajectory_collection[episode]["feats"]["fxd"].append(1 / (math.sqrt(abs(obs[0][0]) + 1)))
-            trajectory_collection[episode]["feats"]["fyd"].append(1 / (math.sqrt(abs(obs[0][1]) + 1)))
-            trajectory_collection[episode]["feats"]["exd"].append(abs(obs[1][0]) / (env.size - 1))
-            trajectory_collection[episode]["feats"]["eyd"].append(abs(obs[1][1]) / (env.size - 1))
-            trajectory_collection[episode]["rewards"].append(reward / -env.enemy_penalty)
-        return trajectory_collection
+        feats = [1 / (math.sqrt(abs(obs[0][0]) + 1)), 1 / (math.sqrt(abs(obs[0][1]) + 1)),
+                 abs(obs[1][0]) / (env.size - 1), abs(obs[1][1]) / (env.size - 1)]
 
+
+        # add euclidean_dist + 1 in order to avoid dividing by zero
+        self.append_list.append([episode, step, (env.player.x, env.player.y), (env.food.x, env.food.y), (env.enemy.x, env.enemy.y),
+              euclidean_dist_food, euclidean_dist_enemy, feats, action, reward / -env.enemy_penalty])
+        # append trajectories if it is the last step of the last episode or every 50k episodes.
+        if (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (episode == self.episodes - 1 and step == self.t - 1):
+            out_file = os.path.join("expert_trajectories",
+                                    self.loadQ + "_episodes" + str(self.episodes) + ".csv")
+            if not os.path.exists(out_file):
+                with open(out_file, 'w') as f:
+                    wr = csv.writer(f, quoting=csv.QUOTE_ALL)
+                    for row in self.append_list:
+                        wr.writerow(row)
+                    self.append_list = []
+            else:
+                with open(out_file, 'a') as f:
+                    wr = csv.writer(f, quoting=csv.QUOTE_ALL)
+                    for row in self.append_list:
+                        wr.writerow(row)
+                    self.append_list = []
 
     def run(self):
 
@@ -155,7 +148,7 @@ class BlobQAgent:
                 new_observation, reward, done = env.step(action)
 
                 if self.observe:
-                    trajectory_collection = self._collect_trajectory_data(step, episode, action, reward, obs, env)
+                    self._collect_trajectory_data(step, episode, action, reward, obs, env)
 
                 max_future_q = np.max(self.Q[new_observation])
                 current_q = self.Q[obs][action]
@@ -205,7 +198,7 @@ class BlobQAgent:
             self.epsilon *= self.epsDecay
 
         self.model_avg_reward = round(mean(episode_rewards), 2)
-        self.model_success_rate = success_counter / (self.episodes)
+        self.model_success_rate = success_counter / self.episodes
 
         if self.checkpoint_name:
             env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
@@ -236,23 +229,17 @@ class BlobQAgent:
             plt.ylabel("Average successes in {0} episodes window".format(str(self.stats_every)))
             plt.xlabel("Episode")
             if fig_out_name:  # save figure
-                name = fig_out_name + "__suceessChart" + '.png'
+                name = fig_out_name + "__successChart" + '.png'
                 plt.savefig(name, bbox_inches='tight')
             plt.show()
 
-        if self.observe:
-            return trajectory_collection
 
-
-def collect_trajectories():
-    checkpoint_name = '10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'
-    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint_name, episodes=6)
-    observations = agent.run()
-
-    out_file = os.path.join("expert_trajectories",
-                            checkpoint_name + "_SN" + str(agent.episodes * agent.t) + ".pickle")
-    with open(out_file, 'wb') as fp:
-        pickle.dump(observations, fp)
+def collect_trajectories(nr=6, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
+    start = time.time()
+    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint, episodes=nr)
+    agent.run()
+    end = time.time()
+    print("NOTICE: {0} trajectories were collected in {1} secs / {2} mins".format(nr, end - start, (end - start)/60))
 
 
 def inspect_model(model, render_wait=250):
@@ -264,5 +251,5 @@ def inspect_model(model, render_wait=250):
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, blob_env_size=10, loadQtable="10x50000x200x__re(25, -300, -1)__pass3__avg__-0.04__success rate__0.96318")
 # agent.run()
 
-collect_trajectories()
+collect_trajectories(nr=70000)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)
