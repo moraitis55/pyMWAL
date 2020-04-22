@@ -104,14 +104,12 @@ class BlobQAgent:
             if not os.path.exists(out_file):
                 with open(out_file, 'w') as f:
                     wr = csv.writer(f, quoting=csv.QUOTE_ALL)
-                    for row in self.append_list:
-                        wr.writerow(row)
+                    wr.writerows(self.append_list)
                     self.append_list = []
             else:
                 with open(out_file, 'a') as f:
                     wr = csv.writer(f, quoting=csv.QUOTE_ALL)
-                    for row in self.append_list:
-                        wr.writerow(row)
+                    wr.writerows(self.append_list)
                     self.append_list = []
 
     def run(self):
