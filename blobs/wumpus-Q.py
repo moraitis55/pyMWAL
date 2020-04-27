@@ -85,8 +85,11 @@ class BlobQAgent:
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
     def _collect_trajectory_data(self, step, episode, action, reward, obs, env):
-        euclidean_dist_food = math.sqrt(pow(obs[0][0], 2) + pow(obs[0][1], 2))
-        euclidean_dist_enemy = math.sqrt(pow(obs[1][0], 2) + pow(obs[1][1], 2))
+        # euclidean_dist_food = math.sqrt(pow(obs[0][0], 2) + pow(obs[0][1], 2))
+        # euclidean_dist_enemy = math.sqrt(pow(obs[1][0], 2) + pow(obs[1][1], 2))
+
+        manhattan_dist_food = abs(obs[0][0]) + abs(obs[0][1])
+        manhattan_dist_enemy = abs(obs[1][0]) + abs(obs[1][1])
 
         # when distance from food is getting smaller we want the feature to have better price.
         # also when the distance from the enemy is getting bigger we want the feature to have better price.
@@ -95,8 +98,8 @@ class BlobQAgent:
 
 
         # add euclidean_dist + 1 in order to avoid dividing by zero
-        self.append_list.append([episode, step, (env.player.x, env.player.y), (env.food.x, env.food.y), (env.enemy.x, env.enemy.y),
-              euclidean_dist_food, euclidean_dist_enemy, feats, action, reward / -env.enemy_penalty])
+        self.append_list.append([episode, step, env.player.x, env.player.y, env.food.x, env.food.y, env.enemy.x, env.enemy.y,
+              manhattan_dist_food, manhattan_dist_enemy, feats, action, reward / -env.enemy_penalty])
         # append trajectories if it is the last step of the last episode or every 50k episodes.
         if (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (episode == self.episodes - 1 and step == self.t - 1):
             out_file = os.path.join("expert_trajectories",
