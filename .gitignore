@@ -125,3 +125,11 @@ dmypy.json
 
 # Pycharm
 .idea
+
+# Pickle files'
+*.pickle
+gridworld/expert_trajectories/
+gridworld/Q_checkpoints/*
+saved_files/
+blobs/Q_checkpoints/
+
