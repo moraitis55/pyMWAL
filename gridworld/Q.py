@@ -1,3 +1,4 @@
+import copy
 import csv
 import math
 import os
@@ -5,7 +6,7 @@ import time
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from blobs.wumpus_environment import BlobEnv
+from gridworld.grid import GridEnv, GridState
 from matplotlib import style
 from statistics import mean
 import pandas as pd
@@ -84,26 +85,39 @@ class BlobQAgent:
         print("\tMean reward: {0}".format(str(np.mean(episode_rewards[-self.stats_every]))))
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
-    def _collect_trajectory_data(self, step, episode, action, reward, obs, env):
+    def _collect_trajectory_data(self, state_before, state_next, step, episode, action, reward, obs, env):
         # euclidean_dist_food = math.sqrt(pow(obs[0][0], 2) + pow(obs[0][1], 2))
         # euclidean_dist_enemy = math.sqrt(pow(obs[1][0], 2) + pow(obs[1][1], 2))
 
-        manhattan_dist_food = abs(obs[0][0]) + abs(obs[0][1])
-        manhattan_dist_enemy = abs(obs[1][0]) + abs(obs[1][1])
+        # manhattan distances
+        dfe = abs(state_before.fp.x - state_before.ep.x) + abs(state_before.fp.y - state_before.ep.y)  # food-enemy
+        dpf = abs(obs[0][0]) + abs(obs[0][1])  # player -food
+        dpe = abs(obs[1][0]) + abs(obs[1][1])  # player -enemy
+
+        # value filters used for feature engineering
+        f1 = lambda x: 1 / (x + 1)
+        f2 = lambda x: x / (env.size - 1)
 
         # when distance from food is getting smaller we want the feature to have better price.
         # also when the distance from the enemy is getting bigger we want the feature to have better price.
-        feats = [1 / (math.sqrt(abs(obs[0][0]) + 1)), 1 / (math.sqrt(abs(obs[0][1]) + 1)),
-                 abs(obs[1][0]) / (env.size - 1), abs(obs[1][1]) / (env.size - 1)]
+        feats = [f1(abs(obs[0][0])), f1(abs(obs[0][1])), f2(abs(obs[1][0])), f2(abs(obs[1][1])), f1(dfe), f2(dfe)]
 
+        # todo: added for debuging, remove later.
+        if state_before.__str__() in self.debug_states.keys():
+            self.debug_states[state_before.__str__()] = [feats, obs, state_before.__str__()]
+        else:
+            self.debug_states[state_before.__str__()] = [feats, obs, state_before.__str__()]
 
         # add euclidean_dist + 1 in order to avoid dividing by zero
-        self.append_list.append([episode, step, env.player.x, env.player.y, env.food.x, env.food.y, env.enemy.x, env.enemy.y,
-              manhattan_dist_food, manhattan_dist_enemy, feats, action, reward / -env.enemy_penalty])
+        self.append_list.append([episode, step, state_before.pp.x, state_before.pp.y, state_before.fp.x,
+                                 state_before.fp.y, state_before.ep.x, state_before.ep.y, state_next.pp.x,
+                                 state_next.pp.y, state_next.fp.x, state_next.fp.y, state_next.ep.x, state_next.ep.y,
+                                 dpf, dpe, feats, action, reward / -env.enemy_penalty])
         # append trajectories if it is the last step of the last episode or every 50k episodes.
-        if (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (episode == self.episodes - 1 and step == self.t - 1):
+        if (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (
+                episode == self.episodes - 1 and step == self.t - 1):
             out_file = os.path.join("expert_trajectories",
-                                    self.loadQ + "_episodes" + str(self.episodes) + ".csv")
+                                    self.loadQ + "_episodes_collected" + str(self.episodes) + ".csv")
             if not os.path.exists(out_file):
                 with open(out_file, 'w') as f:
                     wr = csv.writer(f, quoting=csv.QUOTE_ALL)
@@ -121,12 +135,16 @@ class BlobQAgent:
         if self.observe:
             trajectory_collection = {}
 
-        env = BlobEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t,
+        env = GridEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t,
                       move_penalty=self.move_penalty, enemy_penalty=self.enemy_penalty, food_reward=self.food_reward)
 
         episode_rewards = []
         episode_successes = []
         success_counter = 0
+
+        # todo: remove later.
+        self.debug_states = {}
+
         for episode in range(self.episodes):
             env.reset()
 
@@ -140,6 +158,8 @@ class BlobQAgent:
             total_success = 0
             for step in range(self.t):
                 obs = (env.player - env.food, env.player - env.enemy)
+                state_before = GridState(player_position=copy.copy(env.player), food_position=copy.copy(env.food),
+                                         enemy_position=copy.copy(env.enemy))
 
                 if np.random.random() > self.epsilon:  # choose action based on epsilon
                     action = np.argmax(self.Q[obs])
@@ -149,7 +169,9 @@ class BlobQAgent:
                 new_observation, reward, done = env.step(action)
 
                 if self.observe:
-                    self._collect_trajectory_data(step, episode, action, reward, obs, env)
+                    state_next = GridState(player_position=copy.copy(env.player), food_position=copy.copy(env.food),
+                                           enemy_position=copy.copy(env.enemy))
+                    self._collect_trajectory_data(state_before, state_next, step, episode, action, reward, obs, env)
 
                 max_future_q = np.max(self.Q[new_observation])
                 current_q = self.Q[obs][action]
@@ -240,7 +262,7 @@ def collect_trajectories(nr=6, checkpoint='10x50000x200x__re(25, -300, -1)__pass
     agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint, episodes=nr)
     agent.run()
     end = time.time()
-    print("NOTICE: {0} trajectories were collected in {1} secs / {2} mins".format(nr, end - start, (end - start)/60))
+    print("NOTICE: {0} trajectories were collected in {1} secs / {2} mins".format(nr, end - start, (end - start) / 60))
 
 
 def inspect_model(model, render_wait=250):
@@ -252,5 +274,6 @@ def inspect_model(model, render_wait=250):
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, blob_env_size=10, loadQtable="10x50000x200x__re(25, -300, -1)__pass3__avg__-0.04__success rate__0.96318")
 # agent.run()
 
-collect_trajectories(nr=70000)
+
+collect_trajectories(nr=1)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)

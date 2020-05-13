@@ -35,7 +35,7 @@ Environment info:
 
 observation = relative distance player-food, player-enemy
 
-NOTICE: due to the options of the action method, blobs are not moving horizontally or vertically, this is because Q-learning
+NOTICE: due to the options of the action method, gridworld are not moving horizontally or vertically, this is because Q-learning
 learns to use the walls and when tries to move diagonally it moves up and down. 
 NOTICE: moving diagonally means that as we initialize the environment most of the times player can't access the food without
 moving vertically
@@ -77,7 +77,7 @@ class Blob:
 
         if self.x < 0:
             self.x = 0
-        elif self.x > SIZE - 1:  # position > 9 (it can't be 11, since our grid is 10x10)
+        elif self.x > SIZE - 1:  # position > 9 (it can't be 11, since our gridworld is 10x10)
             self.x = SIZE - 1
 
         if self.y < 0:

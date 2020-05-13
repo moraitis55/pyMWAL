@@ -10,7 +10,7 @@ import cv2
 import os
 import numpy as np
 import tensorflow as tf
-from blobs.wumpus_environment import BlobEnv
+from gridworld.grid import GridEnv
 
 # LOAD_MODEL = "models/256x2pass3____25.000max____3.50avg___-200.00min__1560471815.model"  # or filepath None
 LOAD_MODEL = None
@@ -44,7 +44,7 @@ AGGREGATE_STATS_EVERY = 50  # every episodes to aggregate
 RENDER_EVERY = 50
 SHOW_PREVIEW = False  # see visuals of everything running
 
-env = BlobEnv(allow_vertical_movement=True)
+env = GridEnv(allow_vertical_movement=True)
 
 # For stats
 ep_rewards = [-200]

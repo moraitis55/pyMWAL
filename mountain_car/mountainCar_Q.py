@@ -7,14 +7,15 @@ class MountainCar_Q():
     global Q
 
     def __init__(self, alpha: float = 0.8, gamma: float = 0.95, episodes: int = 1000, silent: bool = False,
-                 resume_Q: bool = False, save_Q: bool = True, checkpoint_name: str = "_Checkpoint",
-                 tableUI: bool = True):
+                 load_Q: bool = False, save_Q: bool = False, checkpoint_name: str = "_Checkpoint",
+                 tableUI: bool = False):
         self._alpha = alpha  # learning rate
         self._gamma = gamma  # discount factor
         self._episodes = episodes  # training episodes
         self._checkpoint_name = checkpoint_name  # checkpoint file name to save or retrieve
         self._silent = silent  # print statistics about the running algorithm progress
         self._tableUI = tableUI  # show a graphic visualization of Q table
+        self._save_Q = save_Q  # whether to save checkpoints
 
         '''
         Environment Notes:
@@ -33,7 +34,7 @@ class MountainCar_Q():
         self.s_positionbins = [round(-1.2 + 0.1 * i, 1) for i in range(0, 18)]  # Separate position range in 18 bins.
         self.s_N = len(self.s_velocitybins) * len(self.s_positionbins)  # Number of states
 
-        if resume_Q:
+        if load_Q:
             self.Q = self._loadQ()  # Load Q-table to resume training
         else:
             self.Q = np.zeros((self.s_N, self.a_N))  # Initialize Q-table
@@ -51,7 +52,7 @@ class MountainCar_Q():
         """
         Loads a save Q-table.
         """
-        path = r"/media/Users/p.moraitis.UBUNTU/projects/thesis/pyMwal/checkpoints/"
+        path = r"/media/Users/p.moraitis.UBUNTU/projects/thesis/pyMwal/mountain_car/checkpoints/"
         return np.load(path + "MC_Qtable" + self._checkpoint_name + ".npy")
 
     def _printif(self, string):
@@ -75,7 +76,7 @@ class MountainCar_Q():
         raise RuntimeError("Position state outside bounds of s_positionbins.")
         return -1
 
-    def run(self):
+    def run(self, expert_mode=False):
         """
             Q-Learning Algorithm
         """
@@ -83,6 +84,9 @@ class MountainCar_Q():
             qT = qTableUi.QTableUi(self.s_N, self.a_N, )
             qT.tableUpdated = False
             qT.create_Qtable()
+        
+        if expert_mode:
+            trajectory_collection = []
 
         for ep in range(self._episodes):
 
@@ -95,11 +99,14 @@ class MountainCar_Q():
             total_reward = 0
 
             while True:
-                self._env.render()
+                # self._env.render()
 
-                ## Choose an action (with noise) ##
-                noise = np.random.randn(1, self.a_N) * (1. / (ep + 1)) ** (
-                    0.75)  # Generate a random noise distribution for the 3-dim action vector that attenuates as episodes go on
+                if not expert_mode:  # in expert exploration is removed
+                    ## Choose an action (with noise) ##
+                    noise = np.random.randn(1, self.a_N) * (1. / (ep + 1)) ** (
+                        0.75)  # Generate a random noise distribution for the 3-dim action vector that attenuates as episodes go on
+                else:
+                    noise = 0
                 action = np.argmax(self.Q[self._getRowIndex(obsv),
                                    :] + noise)  # This noise causes exploration, so our algorithm will explore less over time
 
@@ -107,6 +114,9 @@ class MountainCar_Q():
                 obsv, reward, done, _ = self._env.step(action)  # Feed action into env and observe result
                 t += 1
                 total_reward += reward
+
+                if expert_mode:  # collect trajectory information
+                    trajectory_collection.append((last_obsv, action, reward, done))
 
                 # Update Q-table
                 self.Q[self._getRowIndex(last_obsv), action] = (1 - self._alpha) * self.Q[
@@ -129,10 +139,22 @@ class MountainCar_Q():
                     break
 
             if ((ep + 1) % 25 == 0):
-                self._saveQ(txtCopy=True)
+                if self._save_Q:
+                    self._saveQ(txtCopy=True)
                 self._printif("|-- Q-table checkpoint saved.".format(t, total_reward))
+        
+        if expert_mode:
+            return trajectory_collection
+
+
+def collect_trajectories(samples_n, model_name):
+    expert = MountainCar_Q(episodes=samples_n, checkpoint_name=model_name, load_Q=True)
+    trajectories = expert.run(expert_mode=True)
+    with open('expert_trajectories/trajectories_' + model_name + str(samples_n) + '.txt', 'w') as fp:
+        fp.write(' '.join(str(x) for x in trajectories) + '\n')
 
 
 if __name__ == '__main__':
-    car = MountainCar_Q(tableUI=False, checkpoint_name="_Checkpoint", resume_Q=True)
-    car.run()
+    # car = MountainCar_Q(tableUI=False, checkpoint_name="_Checkpoint", load_Q=True)
+    # car.run()
+    collect_trajectories(7, '_Checkpoint')

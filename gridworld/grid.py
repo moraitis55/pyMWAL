@@ -1,10 +1,26 @@
-from blobs.blob import Blob
 from PIL import Image
 import numpy as np
 import cv2
 
+from gridworld.blob import Blob
 
-class BlobEnv:
+
+class GridState:
+    def __init__(self, player_position, food_position, enemy_position, action=None):
+        self.pp = player_position  # type: tuple
+        self.fp = food_position  # type: tuple
+        self.ep = enemy_position  # type: tuple
+        if action is not None:
+            self.ac = action
+
+    def __str__(self):
+        if hasattr(self, 'ac'):
+            return "player{0}, food{1}, enemy{2}, action{3}".format(self.pp, self.fp, self.ep, self.ac)
+        else:
+            return "player{0}, food{1}, enemy{2}".format(self.pp, self.fp, self.ep)
+
+
+class GridEnv:
     PLAYER_N = 1  # player key in dict
     FOOD_N = 2  # food key in dict
     ENEMY_N = 3  # enemy key in dict
@@ -25,10 +41,65 @@ class BlobEnv:
         self.food_move = enable_food_move
         self.return_images = return_images
         self.observation_space_values = (size, size, 3)  # 4
+        self.feature_nr = 6  # todo: change in to parameter.
         if allow_vertical_movement:
             self.action_space_size = 9
         else:
             self.action_space_size = 4
+        self.state_space_size, self.state_space_index = self.create_state_space()
+        self.action_state_index = self.create_action_state_index()
+
+    def create_state_space(self):
+        """
+        Creates the state space index of the grid world environment.
+        :return: total number of states, state space index
+        """
+
+        state_space_index = {}
+        i = 0  # type: int
+        print("Initializing environment space..")
+        for x1 in range(self.size):
+            for y1 in range(self.size):
+                for x2 in range(self.size):
+                    for y2 in range(self.size):
+                        for x3 in range(self.size):
+                            for y3 in range(self.size):
+                                st = GridState(
+                                    player_position=(x1, y1),
+                                    food_position=(x2, y2),
+                                    enemy_position=(x3, y3)
+                                )
+                                if not st.fp == st.ep:
+                                    state_space_index[st.__str__()] = i
+                                    i += 1
+        return state_space_index.__len__(), state_space_index
+
+    def create_action_state_index(self):
+        """
+        Creates the action-state couples index of the grid world environment.
+        :return: state-action space index
+        """
+
+        action_state_pair_index = {}
+        i = 0  # type: int
+        print("Initializing environment action-state indexes..")
+        for a in range(self.action_space_size):
+            for x1 in range(self.size):
+                for y1 in range(self.size):
+                    for x2 in range(self.size):
+                        for y2 in range(self.size):
+                            for x3 in range(self.size):
+                                for y3 in range(self.size):
+                                    st = GridState(
+                                        player_position=(x1, y1),
+                                        food_position=(x2, y2),
+                                        enemy_position=(x3, y3),
+                                        action=a
+                                    )
+                                    if not st.fp == st.ep:
+                                        action_state_pair_index[st.__str__()] = i
+                                        i += 1
+        return action_state_pair_index
 
     def reset(self):
         self.player = Blob(self.size, self.vertical_movement)
@@ -52,9 +123,9 @@ class BlobEnv:
         self.player.action(action)
 
         if self.enemy_move:
-         self.enemy.move()
+            self.enemy.move()
         if self.food_move:
-         self.food.move()
+            self.food.move()
 
         if self.return_images:
             new_observation = np.array(self.get_image())

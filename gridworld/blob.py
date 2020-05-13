@@ -2,10 +2,10 @@ import numpy as np
 
 
 class Blob:
-    def __init__(self, size, vertical_movement):
+    def __init__(self, size, vertical_movement, posx=None, posy=None):
         self.size = size
-        self.x = np.random.randint(0, size)
-        self.y = np.random.randint(0, size)
+        self.x = posx if posx else np.random.randint(0, size)
+        self.y = posy if posy else np.random.randint(0, size)
         self.vertical_movement = vertical_movement
 
     def __str__(self):
