@@ -1,3 +1,4 @@
+import datetime
 import os
 
 import numpy as np
@@ -116,21 +117,33 @@ class ThetaEstimator:
         :param step: Current step in trajectory.
         :return: Updates transition matrix, transition normalized matrix via reference object)
         """
+        add_time_start = datetime.datetime.utcnow()
         self.trans_counter += 1
 
         self.K[sa, st_next] += 1
         if self.weak_estimation:
             self.K[sa, -1] = 0
-            self.TRz[sa] = self.K[sa] / self.K[sa].sum()
+            norm_start_time = datetime.datetime.utcnow()
+            sum_start = datetime.datetime.utcnow()
+            sum = self.K[sa].sum()
+            sum_time = datetime.datetime.utcnow() - sum_start
+            div_start = datetime.datetime.utcnow()
+            self.TRz[sa] = self.K[sa].multiply(1/sum) #/ sum
+            div_time = datetime.datetime.utcnow() - div_start
+            norm_time = datetime.datetime.utcnow() - norm_start_time
+
 
         self.update_feature_matrix(st, feats)
         self.update_exp_fe(step, feats)
+
         # if trajectory steps finished, construct the probability distribution.
         if self.trans_counter == self.total_steps:
             if not self.weak_estimation:
                 self.construct_theta_estimation()
             if self.fname is not None:
                 save_files(self.fname, self.Fz, self.TRz, self.E)
+        add_time = datetime.datetime.utcnow() - add_time_start
+        return add_time, norm_time, sum_time, div_time
 
     # def construct_theta_weak_estimation(self):
     #     # for na in tqdm(range(self.nS * self.nA), total=self.nS * self.nA, desc="Constructing theta estimation:"):
