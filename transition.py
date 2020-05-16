@@ -42,7 +42,6 @@ def load_files(fname):
     return F, THETA, E
 
 
-
 class ThetaEstimator:
     """
     Constructs an MDP/R Mz, which is subset of the original MDP/R M, with an MLE estimation of the transition function
@@ -106,6 +105,7 @@ class ThetaEstimator:
             self.total_steps = self.m * env.episode_steps
         self.trans_counter = 0
         self.fname = fname
+        self.visited_states = {}
 
     def add_transition(self, sa, st_next, st, feats, step):
         """
@@ -117,21 +117,15 @@ class ThetaEstimator:
         :param step: Current step in trajectory.
         :return: Updates transition matrix, transition normalized matrix via reference object)
         """
-        add_time_start = datetime.datetime.utcnow()
         self.trans_counter += 1
 
         self.K[sa, st_next] += 1
         if self.weak_estimation:
             self.K[sa, -1] = 0
-            norm_start_time = datetime.datetime.utcnow()
-            sum_start = datetime.datetime.utcnow()
-            sum = self.K[sa].sum()
-            sum_time = datetime.datetime.utcnow() - sum_start
-            div_start = datetime.datetime.utcnow()
-            self.TRz[sa] = self.K[sa].multiply(1/sum) #/ sum
-            div_time = datetime.datetime.utcnow() - div_start
-            norm_time = datetime.datetime.utcnow() - norm_start_time
-
+            try:
+                self.visited_states[sa] = self.visited_states[sa] + 1
+            except KeyError:
+                self.visited_states[sa] = 1
 
         self.update_feature_matrix(st, feats)
         self.update_exp_fe(step, feats)
@@ -141,9 +135,9 @@ class ThetaEstimator:
             if not self.weak_estimation:
                 self.construct_theta_estimation()
             if self.fname is not None:
+                for sa in tqdm(self.visited_states.keys(), desc="Normalizing values"):
+                    self.TRz[sa] = self.K[sa] / self.visited_states[sa]
                 save_files(self.fname, self.Fz, self.TRz, self.E)
-        add_time = datetime.datetime.utcnow() - add_time_start
-        return add_time, norm_time, sum_time, div_time
 
     # def construct_theta_weak_estimation(self):
     #     # for na in tqdm(range(self.nS * self.nA), total=self.nS * self.nA, desc="Constructing theta estimation:"):

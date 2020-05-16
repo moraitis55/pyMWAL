@@ -1,5 +1,7 @@
 import ast
 import csv
+import datetime
+
 from tqdm import tqdm
 import numpy as np
 from gridworld.grid import GridState
@@ -76,6 +78,7 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
     :param weak_estimation: Determines whether we have the number of expert trajectories required from the algorithm.
     :return:
     """
+    process_start = datetime.datetime.utcnow()
     nS = env.state_space_size
     nA = env.action_space_size
 
@@ -83,7 +86,6 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
     te = ThetaEstimator(env=env, m=m, weak_estimation=weak_estimation, fname=expert_file)
 
     for step in tqdm(trajectory_generator(expert_file), total=total_steps, desc="Processing expert trajectories"):
-        # for step in zip(rd):
 
         t = csvdata_to_trajectory_state(step)
 
@@ -96,5 +98,4 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
         sa_index = env.action_state_index[sa.__str__()]
 
         te.add_transition(sa_index, next_state_index, state_index, t.feats, t.step)
-
     return te.Fz, te.TRz, te.E
