@@ -1,5 +1,7 @@
 import datetime
 import math
+import time
+
 import numpy as np
 from scipy.sparse import dok_matrix
 from tqdm import tqdm
@@ -7,7 +9,7 @@ from opt_policy_and_feat_exp import opt_policy_and_feat_exp
 from transition import save_files
 
 
-def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=0.001, fname=None):
+def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
     """
     This class implements the MWAL algorithm from:
 
@@ -63,7 +65,7 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=0.001, fname=None):
     """
 
     S, K = F.shape
-    beta = 1 / (1 + math.sqrt(2 * math.log(K)) / T)
+    beta = 1 / (1 + math.sqrt((2 * math.log(K)) / T))
 
     # Choose initial feature expectations randomly
     VV = np.random.rand(S, K)
@@ -74,36 +76,38 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=0.001, fname=None):
 
     ITER = np.ndarray((T,))
     TT = np.ndarray((T,))
-    MM = np.ndarray((T,))
-    PP = np.ndarray((T,))
+    MM = np.ndarray((T, K))
+    PP = np.ndarray((T, S))
 
     for i in tqdm(range(T), desc="MWAL episode:"):
         # set Weights
         w = W / W.sum()
-        t1 = datetime.datetime.utcnow()
+        t1 = time.time()
+
 
         P, M, VV, ITER[i] = opt_policy_and_feat_exp(THETA, F, gamma, w, INIT_FLAG, VV, tol)
 
-        # terminal condition
+        # terminal condition (case where expert is dominated)
         featdiff = M - E
         if featdiff.min() > 0:
 
             if i == 0:
-                TT[1] = datetime.datetime.utcnow() - t1
+                TT[1] = time.time() - t1
             else:
-                TT[i] = TT[i - 1] + datetime.datetime.utcnow() - t1
+                TT[i] = TT[i - 1] + time.time() - t1
 
             PP[i, :] = P
             MM[i, :] = M
             break
 
         G = ((1 - gamma) * (M - E) + 2 * np.ones((1, K))) / 4
-        W = W * math.exp(math.log(beta) * G)
+        W = W * beta ** G
+        W = W.squeeze(axis=0)
 
         if i == 0:
-            TT[i] = datetime.datetime.utcnow() - t1
+            TT[i] = time.time() - t1
         else:
-            TT[i] = TT[i - 1] + datetime.datetime.utcnow() - t1
+            TT[i] = TT[i - 1] + time.time() - t1
 
         PP[i, :] = P
         MM[i, :] = M
