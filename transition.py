@@ -4,6 +4,7 @@ import os
 import numpy as np
 from scipy.sparse import dok_matrix, save_npz, load_npz
 from tqdm import tqdm
+from sklearn.preprocessing import normalize
 
 
 def save_files(fname, F=None, THETA=None, E=None, PP=None, MM=None):
@@ -26,7 +27,7 @@ def save_files(fname, F=None, THETA=None, E=None, PP=None, MM=None):
         with open(os.path.join(dir, 'MM.pickle'), 'wb') as f:
             np.save(f, MM)
     if THETA is not None:
-        save_npz(os.path.join(dir, 'THETA.pickle'), THETA.tocsr())
+        save_npz(os.path.join(dir, 'THETA'), THETA.tocsr())
     print("\nSave completed successfully!")
 
 
@@ -92,10 +93,8 @@ class ThetaEstimator:
         if weak_estimation:
             self.TRz = dok_matrix((self.nSz * self.nA, self.nSz))
             # initialize all absorbing states visited
-            self.K[:, -1] = 0
-            self.TRz[:, -1] = 1.0
+            self.K[:, -1] = 1
             self.K[-self.nA:, -1] = 1
-            self.TRz[-self.nA:, -1] = 1.0
 
         self.Fz = np.full(shape=(self.nSz, env.feature_nr), fill_value=-1.0)
         self.E_counts = np.zeros(shape=(env.feature_nr,))
@@ -122,10 +121,6 @@ class ThetaEstimator:
         self.K[sa, st_next] += 1
         if self.weak_estimation:
             self.K[sa, -1] = 0
-            try:
-                self.visited_states[sa] = self.visited_states[sa] + 1
-            except KeyError:
-                self.visited_states[sa] = 1
 
         self.update_feature_matrix(st, feats)
         self.update_exp_fe(step, feats)
@@ -135,8 +130,7 @@ class ThetaEstimator:
             if not self.weak_estimation:
                 self.construct_theta_estimation()
             if self.fname is not None:
-                for sa in tqdm(self.visited_states.keys(), desc="Normalizing values"):
-                    self.TRz[sa] = self.K[sa] / self.visited_states[sa]
+                self.normalize_trans_matrix()
                 save_files(self.fname, self.Fz, self.TRz, self.E)
 
     # def construct_theta_weak_estimation(self):
@@ -161,10 +155,9 @@ class ThetaEstimator:
         """
         Normalize the transition matrix to probability distribution
         """
-        self.TRz = self.K.copy()
-        SA, S = self.K.shape
-        for i in tqdm(range(int(SA)), total=SA, desc="Normalizing transition matrix"):
-            self.TRz[i] = self.K[i] / self.K[i].sum()
+        print("\nNormalizing theta matrix..")
+        self.TRz = normalize(self.K, norm='l1', axis=1)
+        print("Done")
 
     def compute_trajectories_threshold(self):
         """
