@@ -81,22 +81,28 @@ class ThetaEstimator:
     """
     K = ...  # type: dok_matrix
 
-    def __init__(self, env, m=None, est_trans_error=0.1, est_trans_delta=0.1, weak_estimation=False, fname=None):
+    def __init__(self, env, m=None, est_trans_error=0.1, est_trans_delta=0.1, weak_estimation=False, fname=None, modify_env=False):
+
+        if modify_env:
+            # add one more state in environment (absorbing state)
+            env.create_absorbing_state_indexes()
+
         self.est_trans_error = est_trans_error
         self.est_trans_delta = est_trans_delta
         self.weak_estimation = weak_estimation
         self.nS = env.state_space_size
-        self.nSz = self.nS + 1
         self.nA = env.action_space_size
-        self.K = dok_matrix((self.nSz * self.nA, self.nSz))
+        self.K = dok_matrix((self.nS * self.nA, self.nS))
         self.TRz = None
         if weak_estimation:
-            self.TRz = dok_matrix((self.nSz * self.nA, self.nSz))
-            # initialize all absorbing states visited
+            self.TRz = dok_matrix((self.nS * self.nA, self.nS))
+            # initialize all action-state sets to absorbing states
             self.K[:, -1] = 1
-            self.K[-self.nA:, -1] = 1
 
-        self.Fz = np.full(shape=(self.nSz, env.feature_nr), fill_value=-1.0)
+        self.Fz = np.zeros(shape=(self.nS, env.feature_nr))
+        # the absorbing state is initialized with -1 value for all the features.
+        self.Fz[self.nS-1,:] = -1
+
         self.E_counts = np.zeros(shape=(env.feature_nr,))
         self.E = None
         self.m = m
@@ -104,7 +110,6 @@ class ThetaEstimator:
             self.total_steps = self.m * env.episode_steps
         self.trans_counter = 0
         self.fname = fname
-        self.visited_states = {}
 
     def add_transition(self, sa, st_next, st, feats, step):
         """
@@ -188,7 +193,7 @@ class ThetaEstimator:
         :param feats: The set of features corresponding to the specific state.
         """
         for i, feat in enumerate(feats):
-            if self.Fz[st][i] != -1 and self.Fz[st][i] != feat:
+            if self.Fz[st][i] != 0 and self.Fz[st][i] != feat:
                 raise Exception("ERROR: There was a value conflict while collecting the expert features!")
             self.Fz[st][i] = feat
 

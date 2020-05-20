@@ -83,7 +83,7 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
     nA = env.action_space_size
 
     total_steps = m * env.episode_steps
-    te = ThetaEstimator(env=env, m=m, weak_estimation=weak_estimation, fname=expert_file)
+    te = ThetaEstimator(env=env, m=m, weak_estimation=weak_estimation, fname=expert_file, modify_env=True)
 
     for step in tqdm(trajectory_generator(expert_file), total=total_steps, desc="Processing expert trajectories"):
 
@@ -97,5 +97,5 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
                        action=t.action)
         sa_index = env.action_state_index[sa.__str__()]
 
-        te.add_transition(sa_index, next_state_index, state_index, t.feats, t.step)
+        te.add_transition(sa=sa_index, st_next=next_state_index, st=state_index, feats=t.feats, step=t.step)
     return te.Fz, te.TRz, te.E

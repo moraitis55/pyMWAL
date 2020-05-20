@@ -48,6 +48,6 @@ def run_mwal(env, expert_file, m=None):
 
 
 if __name__ == '__main__':
-    environment = GridEnv()
-    run_mwal(environment,
-             expert_file='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected1000', m=1000)
+    # environment = GridEnv()
+    run_mwal(env=None,
+             expert_file='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500', m=2500)

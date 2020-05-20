@@ -49,15 +49,19 @@ class GridEnv:
         self.state_space_size, self.state_space_index = self.create_state_space()
         self.action_state_index = self.create_action_state_index()
 
-    def create_state_space(self):
+    def create_state_space(self, include_absorbing_state=False):
         """
         Creates the state space index of the grid world environment.
+        :param add_absorbing_state: Used to create indexes including one more state (the absorbing state s0) used by mwal algorithm
         :return: total number of states, state space index
         """
 
         state_space_index = {}
         i = 0  # type: int
-        print("Initializing environment space..")
+        if include_absorbing_state:
+            print("Initializing environment space including the absorbing state..")
+        else:
+            print("Initializing environment space..")
         for x1 in range(self.size):
             for y1 in range(self.size):
                 for x2 in range(self.size):
@@ -72,17 +76,30 @@ class GridEnv:
                                 if not st.fp == st.ep:
                                     state_space_index[st.__str__()] = i
                                     i += 1
+        if include_absorbing_state:
+            st = GridState(
+                player_position=(0,0),
+                food_position=(0,0),
+                enemy_position=(0,0)
+            )
+            state_space_index[st.__str__()] = i
+            i += 1
+
         return state_space_index.__len__(), state_space_index
 
-    def create_action_state_index(self):
+    def create_action_state_index(self, include_absorbing_state=False):
         """
         Creates the action-state couples index of the grid world environment.
+        :param add_absorbing_state: Used to create indexes including one more state (the absorbing state s0) used by mwal algorithm
         :return: state-action space index
         """
 
         action_state_pair_index = {}
         i = 0  # type: int
-        print("Initializing environment action-state indexes..")
+        if include_absorbing_state:
+            print("Initializing environment action-state indexes (including the absorbing state)..")
+        else:
+            print("Initializing environment action-state indexes..")
         for a in range(self.action_space_size):
             for x1 in range(self.size):
                 for y1 in range(self.size):
@@ -99,7 +116,21 @@ class GridEnv:
                                     if not st.fp == st.ep:
                                         action_state_pair_index[st.__str__()] = i
                                         i += 1
+            if include_absorbing_state:
+                st = GridState(
+                    player_position=(0,0),
+                    food_position=(0,0),
+                    enemy_position=(0,0),
+                    action=a
+                )
+                action_state_pair_index[st.__str__()] = i
+                i += 1
+
         return action_state_pair_index
+
+    def create_absorbing_state_indexes(self):
+        self.state_space_size, self.state_space_index = self.create_state_space(include_absorbing_state=True)
+        self.action_state_index = self.create_action_state_index(include_absorbing_state=True)
 
     def reset(self):
         self.player = Blob(self.size, self.vertical_movement)
