@@ -1,9 +1,10 @@
+import csv
 import os
 
-import numpy as np
 from gridworld.expert import process_trajectories
 from gridworld.grid import GridEnv
 from transition import ThetaEstimator, load_files
+from write_policy import write_out_policies
 from mwal import mwal
 
 
@@ -18,18 +19,17 @@ def run_mwal(env, expert_file, m=None):
     T = 500
     weak_estimation = False
 
-    m_req = ThetaEstimator(env).compute_trajectories_threshold()
     if os.path.exists(os.path.join('saved_files', expert_file)):
         F, THETA, E = load_files(expert_file)
         THETA = THETA.todok()
     else:
+        m_req = ThetaEstimator(env).compute_trajectories_threshold()
         if m < m_req:
             weak_estimation = True
         F, THETA, E = process_trajectories(expert_file, env, m, weak_estimation, True)
 
     # Run the mwal algorithm
     PP, MM, ITER, TT = mwal(THETA=THETA, F=F, E=E, gamma=gamma, INIT_FLAG='first', T=T, fname=expert_file)
-
 
     # # Determine the mixing coefficients (trivial)
     # c = np.ones((T, 1)) / T
@@ -44,10 +44,12 @@ def run_mwal(env, expert_file, m=None):
     # i = np.argwhere(r <= C)[0][0]
     #
     # # Write out that policy
-    # #write_out_policy(PP[i, :])
+
+    write_out_policies(PP, expert_file)
 
 
 if __name__ == '__main__':
     # environment = GridEnv()
     run_mwal(env=None,
-             expert_file='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500', m=2500)
+             expert_file='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500',
+             m=2500)

@@ -47,7 +47,7 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
     A = int(SA / S)
     if INIT_FLAG is 'first':
         init = np.zeros((1, S))
-        init[0,0] = 1
+        init[0, 0] = 1
     elif INIT_FLAG is 'uniform':
         init = np.ones(1, S) / S
 
@@ -59,11 +59,6 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
     for i in range(K):
         F_long[:, i] = np.reshape(a=np.kron(np.ones(shape=(1, A)), F[:, i]).conj().T,
                                   newshape=(S * A,))
-
-    # Choose initial features expectations randomly, if necessary
-    if VV.size == 0:
-        VV = np.random.rand(S, K)
-        VV = coo_matrix(VV)
 
     # V: S x 1 reward vector, where V(i,j) contains the weighted value of the ith feature expectation in the jth state (Reward).
     V = VV.dot(w).conj().T

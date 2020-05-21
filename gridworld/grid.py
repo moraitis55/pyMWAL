@@ -1,3 +1,6 @@
+import csv
+import os
+
 from PIL import Image
 import numpy as np
 import cv2
@@ -78,9 +81,9 @@ class GridEnv:
                                     i += 1
         if include_absorbing_state:
             st = GridState(
-                player_position=(0,0),
-                food_position=(0,0),
-                enemy_position=(0,0)
+                player_position=(0, 0),
+                food_position=(0, 0),
+                enemy_position=(0, 0)
             )
             state_space_index[st.__str__()] = i
             i += 1
@@ -118,9 +121,9 @@ class GridEnv:
                                         i += 1
             if include_absorbing_state:
                 st = GridState(
-                    player_position=(0,0),
-                    food_position=(0,0),
-                    enemy_position=(0,0),
+                    player_position=(0, 0),
+                    food_position=(0, 0),
+                    enemy_position=(0, 0),
                     action=a
                 )
                 action_state_pair_index[st.__str__()] = i
@@ -131,6 +134,21 @@ class GridEnv:
     def create_absorbing_state_indexes(self):
         self.state_space_size, self.state_space_index = self.create_state_space(include_absorbing_state=True)
         self.action_state_index = self.create_action_state_index(include_absorbing_state=True)
+
+    def write_out_indexing(self):
+        file = os.path.join('gridworld', 'state_index_mapping.csv')
+        if not os.path.exists(file):
+            print("Writing out state space indexing..")
+            with open(file, 'w') as f:
+                writer = csv.writer(f)
+                import operator
+                dict = self.state_space_index
+                x = sorted(dict.items(), key=operator.itemgetter(1))
+                import collections
+                sorted_dict = collections.OrderedDict(x)
+                for key in sorted_dict:
+                    writer.writerow([sorted_dict[key], key])
+            print("Done")
 
     def reset(self):
         self.player = Blob(self.size, self.vertical_movement)

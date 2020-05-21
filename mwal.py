@@ -3,7 +3,7 @@ import math
 import time
 
 import numpy as np
-from scipy.sparse import dok_matrix
+from scipy.sparse import dok_matrix, coo_matrix
 from tqdm import tqdm
 from opt_policy_and_feat_exp import opt_policy_and_feat_exp
 from transition import save_files
@@ -69,7 +69,9 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
 
     # Choose initial feature expectations randomly
     VV = np.random.rand(S, K)
-    VV = dok_matrix(VV)
+    # initialize absorbing state value with zero.
+    VV[S - 1] = -1
+    VV = coo_matrix(VV)
 
     # initialize weights list with first weight vector.
     W = np.ones(K)
@@ -116,3 +118,5 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
 
     if fname is not None:
         save_files(fname, PP=PP, MM=MM)
+
+    return PP, MM, ITER, TT
