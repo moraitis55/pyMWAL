@@ -5,8 +5,8 @@ from PIL import Image
 import numpy as np
 import cv2
 
-from gridworld.blob import Blob
-
+# from gridworld.blob import Blob
+from blob import Blob
 
 class GridState:
     def __init__(self, player_position, food_position, enemy_position, action=None):
@@ -33,7 +33,8 @@ class GridEnv:
          3: (0, 0, 255)}
 
     def __init__(self, episode_steps=200, size=10, allow_vertical_movement=False, move_penalty=-1, enemy_penalty=-300,
-                 food_reward=25, return_images=True, enable_enemy_move=False, enable_food_move=False):
+                 food_reward=25, return_images=True, enable_enemy_move=False, enable_food_move=False, dizzy=False):
+        self.dizzy = dizzy
         self.size = size
         self.episode_steps = episode_steps
         self.vertical_movement = allow_vertical_movement
@@ -151,13 +152,13 @@ class GridEnv:
             print("Done")
 
     def reset(self):
-        self.player = Blob(self.size, self.vertical_movement)
-        self.food = Blob(self.size, self.vertical_movement)
+        self.player = Blob(self.size, self.vertical_movement, self.dizzy)
+        self.food = Blob(self.size, self.vertical_movement, False)
         while self.food == self.player:
-            self.food = Blob(self.size, self.vertical_movement)
-        self.enemy = Blob(self.size, self.vertical_movement)
+            self.food = Blob(self.size, self.vertical_movement, False)
+        self.enemy = Blob(self.size, self.vertical_movement, False)
         while self.enemy == self.player or self.enemy == self.food:
-            self.enemy = Blob(self.size, self.vertical_movement)
+            self.enemy = Blob(self.size, self.vertical_movement, False)
 
         self.episode_step = 0
 

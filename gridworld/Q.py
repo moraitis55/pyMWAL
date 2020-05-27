@@ -6,8 +6,9 @@ import time
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from gridworld.grid import GridEnv, GridState
+from grid import GridEnv, GridState
 from matplotlib import style
+from tqdm import tqdm
 from statistics import mean
 import pandas as pd
 
@@ -19,7 +20,7 @@ class BlobQAgent:
     def __init__(self, observe_mode=False, loadQtable: str = None, blob_env_size=10, steps=200, episodes=25000,
                  stats_every=3000, enable_render=True, render_every=None, render_wait=250, epsilon=0.9,
                  epsilon_decay=0.9998, lr=0.1, discount=0.95, checkpoint_name=None, silence=False, fr=25, ep=-300,
-                 mp=-1, env_respawn=True):
+                 mp=-1, env_respawn=True, dizzy_agent=False):
         self.observe = observe_mode
         self.loadQ = loadQtable
         self.t = steps
@@ -36,6 +37,7 @@ class BlobQAgent:
         self.enemy_penalty = ep
         self.move_penalty = mp
         self.env_respawn = env_respawn
+        self.dizzy = dizzy_agent
 
         if observe_mode:  # in observe mode we don't need exploration
             self.epsilon = 0
@@ -136,7 +138,8 @@ class BlobQAgent:
             trajectory_collection = {}
 
         env = GridEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t,
-                      move_penalty=self.move_penalty, enemy_penalty=self.enemy_penalty, food_reward=self.food_reward)
+                      move_penalty=self.move_penalty, enemy_penalty=self.enemy_penalty, food_reward=self.food_reward,
+                      dizzy=self.dizzy)
 
         episode_rewards = []
         episode_successes = []
@@ -145,14 +148,14 @@ class BlobQAgent:
         # todo: remove later.
         self.debug_states = {}
 
-        for episode in range(self.episodes):
+        for episode in tqdm(range(self.episodes), desc="Episode"):
             env.reset()
 
             if self.stats_every and episode % self.stats_every == 0 and episode > 0:
                 self._printWindowStats(episode_rewards, episode)
 
-            self._printif("====+====+====+====+====+====+====+====+====")
-            self._printif("|-- Episode {} starting.".format(episode))
+            # self._printif("====+====+====+====+====+====+====+====+====")
+            # self._printif("|-- Episode {} starting.".format(episode))
 
             total_reward = 0
             total_success = 0
@@ -197,25 +200,26 @@ class BlobQAgent:
 
                 total_reward += reward
 
-                if (step % 50 == 0 and step > 1) or done:  # print episode total reward every 50 steps
-                    self._printif("| [t = {}]\tReward = {:.4f}".format(step, total_reward))
+                # if (step % 50 == 0 and step > 1) or done:  # print episode total reward every 50 steps
+                #     self._printif("| [t = {}]\tReward = {:.4f}".format(step, total_reward))
 
                 if done:
                     if reward == env.food_reward:
                         result = "\t\t< SUCCESS! >"
-                        success_counter += 1
                         total_success += 1
                     elif reward == env.enemy_penalty:
                         result = "\t\t< FAILURE! >"
                     else:
                         result = "\t\t< SURVIVED! >"
-                    self._printif("|-- Episode {} finished after {} steps.".format(episode, step) + result)
+                    # self._printif("|-- Episode {} finished after {} steps.".format(episode, step) + result)
                     # if in respawn mode reset the environment and start over for the remaining steps of the episode.
                     if self.env_respawn:
                         env.reset()
                     else:
                         break
 
+            if total_success > 0:
+                success_counter +=1
             episode_rewards.append(total_reward)
             episode_successes.append(total_success)
             self.epsilon *= self.epsDecay
@@ -224,9 +228,10 @@ class BlobQAgent:
         self.model_success_rate = success_counter / self.episodes
 
         if self.checkpoint_name:
-            env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
-                                                                    self.food_reward, self.enemy_penalty,
-                                                                    self.move_penalty)
+            # env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
+            #                                                         self.food_reward, self.enemy_penalty,
+            #                                                         self.move_penalty)
+            env_string = "dizzy-{0}x{1}".format(self.dizzy, self.episodes)
             out_name = "Q_checkpoints/" + env_string + self.checkpoint_name + "__avg__" + str(
                 self.model_avg_reward) + "__success rate__" + str(self.model_success_rate)
             fig_out_name = "Q_checkpoints/figures/" + env_string + self.checkpoint_name + "__avg__" + str(
@@ -272,8 +277,7 @@ def inspect_model(model, render_wait=250):
 
 
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, blob_env_size=10, loadQtable="10x50000x200x__re(25, -300, -1)__pass3__avg__-0.04__success rate__0.96318")
-# agent.run()
-
-
-collect_trajectories(nr=1)
+agent = BlobQAgent(checkpoint_name="pass1", episodes=20000, dizzy_agent=True)
+agent.run()
+#collect_trajectories(nr=1000000)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)

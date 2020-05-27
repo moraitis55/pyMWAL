@@ -1,9 +1,12 @@
+import random
+
 import numpy as np
 
 
 class Blob:
-    def __init__(self, size, vertical_movement, posx=None, posy=None):
+    def __init__(self, size, vertical_movement, dizzy, posx=None, posy=None):
         self.size = size
+        self.dizzy = dizzy
         self.x = posx if posx else np.random.randint(0, size)
         self.y = posy if posy else np.random.randint(0, size)
         self.vertical_movement = vertical_movement
@@ -18,6 +21,20 @@ class Blob:
         return self.x == other.x and self.y == other.y
 
     def action(self, choice):
+        if self.dizzy:
+            num = random.randint(1, 10)
+            if num > 8:
+                moves_nr = 9 if self.vertical_movement else 4
+                new_choice_list = [x for x in range(moves_nr) if x != choice]
+                choice = random.choice(new_choice_list)
+                self.set_action(choice)
+            else:
+                self.set_action(choice)
+
+        else:
+            self.set_action(choice)
+
+    def set_action(self, choice):
         """
         Gives us 9 total movement options. (0,1,2,3,4,5,6,7,8)
         """
