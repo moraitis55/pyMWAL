@@ -231,7 +231,7 @@ class BlobQAgent:
             # env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
             #                                                         self.food_reward, self.enemy_penalty,
             #                                                         self.move_penalty)
-            env_string = "dizzy-{0}x{1}".format(self.dizzy, self.episodes)
+            env_string = "dizzy40%-{0}x{1}".format(self.dizzy, self.episodes)
             out_name = "Q_checkpoints/" + env_string + self.checkpoint_name + "__avg__" + str(
                 self.model_avg_reward) + "__success rate__" + str(self.model_success_rate)
             fig_out_name = "Q_checkpoints/figures/" + env_string + self.checkpoint_name + "__avg__" + str(
@@ -262,22 +262,24 @@ class BlobQAgent:
             plt.show()
 
 
-def collect_trajectories(nr=6, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
+def collect_trajectories(nr=6, dizzy=False, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
     start = time.time()
-    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint, episodes=nr)
+    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint, episodes=nr, dizzy_agent=dizzy)
     agent.run()
     end = time.time()
     print("NOTICE: {0} trajectories were collected in {1} secs / {2} mins".format(nr, end - start, (end - start) / 60))
 
 
-def inspect_model(model, render_wait=250):
+def inspect_model(model, dizzy=False, render_wait=250):
     agent = BlobQAgent(loadQtable=model, render_wait=render_wait, render_every=1, episodes=100000, epsilon=0,
-                       env_respawn=True)
+                       env_respawn=True, dizzy_agent=dizzy)
     agent.run()
 
 
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, blob_env_size=10, loadQtable="10x50000x200x__re(25, -300, -1)__pass3__avg__-0.04__success rate__0.96318")
-agent = BlobQAgent(checkpoint_name="pass1", episodes=20000, dizzy_agent=True)
-agent.run()
-#collect_trajectories(nr=1000000)
+# agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, dizzy_agent=True, loadQtable="dizzy-Truex50000pass2__avg__-114.63__success rate__0.9562")
+# agent = BlobQAgent(checkpoint_name="pass4", episodes=50000, dizzy_agent=True, loadQtable="dizzy40%-Truex50000pass3__avg__-152.89__success rate__0.97656")
+# agent.run()
+#collect_trajectories(nr=1000000, dizzy=True)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)
+inspect_model(model="dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826", render_wait=50, dizzy=True)

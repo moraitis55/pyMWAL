@@ -23,7 +23,7 @@ class Blob:
     def action(self, choice):
         if self.dizzy:
             num = random.randint(1, 10)
-            if num > 8:
+            if num > 6:
                 moves_nr = 9 if self.vertical_movement else 4
                 new_choice_list = [x for x in range(moves_nr) if x != choice]
                 choice = random.choice(new_choice_list)

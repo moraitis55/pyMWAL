@@ -92,7 +92,8 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
         state_index = env.state_space_index[t.state_before.__str__()]
         next_state_index = env.state_space_index[t.state_next.__str__()]
 
-        sa = GridState(player_position=t.state_before.pp, food_position=t.state_before.fp,
+        sa = GridState(player_position=t.state_before.pp,
+                       food_position=t.state_before.fp,
                        enemy_position=t.state_before.ep,
                        action=t.action)
         sa_index = env.action_state_index[sa.__str__()]
