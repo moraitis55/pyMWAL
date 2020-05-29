@@ -64,7 +64,7 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
     V = VV.dot(w).conj().T
 
     # Conserve memory
-    del F
+    # del F #todo uncommnent later
     F_long = coo_matrix(F_long)
     w = coo_matrix(w)
 
@@ -83,7 +83,14 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
         # 1 x S sparse vector of feature expectations in each state. #todo: validate max, argmax results
         V_new = QA.max(axis=0)
         # 1 x S sparse vector of optimal actions in each state.
-        P = QA.toarray().argmax(axis=0)
+        P = np.ndarray(shape=(S,))
+        QA = QA.toarray()
+        for i in range(S):
+            dump = QA[:,i]
+            P[i] = np.random.choice(np.where(dump == dump.max())[0])
+        P = P.astype(int)
+
+        # P = QA.toarray().argmax(axis=0)
 
         # conserve memory
         del dummy
