@@ -6,15 +6,18 @@ from tqdm import tqdm
 
 MODEL = '../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500'
 MODEL2 = '../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected1000000'
-FOLDER2 = 'policies_VVzero'
-FOLDER1 = 'policies'
+MODEL3 = os.path.join('..', 'saved_files', 'dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826_episodes_collected2500')
+FOLDER = 'policies'
 
 
-def execute_policy(model, policies_folder, policy_nr, env=None, episodes=2500, pr=False):
-    if env is None:
+def execute_policy(model, policies_folder, policy_nr, dizzy=False, episodes=2500, pr=False, render=False):
+    print("Executing\nmodel:{0}\nfolder:{1}\ndizzy:{2}".format(model,policies_folder,dizzy))
+    if dizzy:
+        env = GridEnv(dizzy=True)
+    else:
         env = GridEnv()
 
-    policy_file = os.path.join(model, policies_folder, 'policy ' + str(policy_nr) + '.csv')
+    policy_file = os.path.join(model, policies_folder, 'policy_' + str(policy_nr) + '.csv')
     t1 = open(policy_file, 'r')
     policy = t1.readlines()
     t1.close()
@@ -44,11 +47,12 @@ def execute_policy(model, policies_folder, policy_nr, env=None, episodes=2500, p
             new_observation, reward, done = env.step(action)
 
             ################### RENDER #######################################
-            render_wait = 50
-            # if reward == env.food_reward or reward == env.enemy_penalty:
-            #     env.render(render_wait + 400)  # freeze the image to make it easy for the viewer
-            # else:
-            #     env.render(wait=render_wait)
+            if render:
+                render_wait = 50
+                if reward == env.food_reward or reward == env.enemy_penalty:
+                    env.render(render_wait + 400)  # freeze the image to make it easy for the viewer
+                else:
+                    env.render(wait=render_wait)
             ##################################################################
 
             episode_reward_counter += reward
@@ -118,15 +122,29 @@ def execute_policies(model, policies_folder, exec_max=None, episodes=2500):
     print("\nBest policy is {0} with {1} reward\n\n".format(policy_max, rwd_max))
 
 
-# execute_policy(MODEL2,FOLDER1,policy_nr=25,pr=True)
+# execute_policy(MODEL3,FOLDER,policy_nr=474,pr=True, render=True, dizzy_agent=True)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", help="max policies to execute", default=None)
-    parser.add_argument("--alt", action="store_true")
+    parser.add_argument("-m", help="model to execute", required=False)
+    parser.add_argument("-mx", help="max policies to execute", default=None)
+    parser.add_argument("-p", help="policy to execute", required=False)
+    parser.add_argument("-v", help="model version", required=False)
+    parser.add_argument("--r", help="render", action="store_true")
+    parser.add_argument("--d", help="dizzy agent", action="store_true")
+
     args = parser.parse_args()
+    dizzy = False
+    render = False
+    model = MODEL
+    folder = FOLDER
 
-    folder = FOLDER1
-    if args.alt:
-        folder = FOLDER2
+    if args.v:
+        folder = folder + "V" + str(args.v)
+    if args.m:
+        model = args.m
+    if args.r:
+        render = True
+    if args.d:
+        dizzy = True
 
-    execute_policies(MODEL2, folder, args.m)
+    execute_policy(model=model, policies_folder=folder, policy_nr=args.p, dizzy=dizzy, render=render)
