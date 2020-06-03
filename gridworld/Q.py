@@ -20,7 +20,7 @@ class BlobQAgent:
     def __init__(self, observe_mode=False, loadQtable: str = None, blob_env_size=10, steps=200, episodes=25000,
                  stats_every=3000, enable_render=True, render_every=None, render_wait=250, epsilon=0.9,
                  epsilon_decay=0.9998, lr=0.1, discount=0.95, checkpoint_name=None, silence=False, fr=25, ep=-300,
-                 mp=-1, env_respawn=True, dizzy_agent=False):
+                 mp=-1, env_respawn=False, dizzy_agent=False):
         self.observe = observe_mode
         self.loadQ = loadQtable
         self.t = steps
@@ -87,7 +87,7 @@ class BlobQAgent:
         print("\tMean reward: {0}".format(str(np.mean(episode_rewards[-self.stats_every]))))
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
-    def _collect_trajectory_data(self, state_before, state_next, step, episode, action, reward, obs, env):
+    def _collect_trajectory_data(self, state_before, state_next, step, episode, action, reward, obs, env, done):
         # euclidean_dist_food = math.sqrt(pow(obs[0][0], 2) + pow(obs[0][1], 2))
         # euclidean_dist_enemy = math.sqrt(pow(obs[1][0], 2) + pow(obs[1][1], 2))
 
@@ -115,9 +115,14 @@ class BlobQAgent:
                                  state_before.fp.y, state_before.ep.x, state_before.ep.y, state_next.pp.x,
                                  state_next.pp.y, state_next.fp.x, state_next.fp.y, state_next.ep.x, state_next.ep.y,
                                  dpf, dpe, feats, action, reward / -env.enemy_penalty])
+        if self.env_respawn:
+            end_condition = (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (
+                episode == self.episodes - 1 and step == self.t - 1)
+        else:
+            end_condition = (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (
+                    episode == self.episodes - 1 and done)
         # append trajectories if it is the last step of the last episode or every 50k episodes.
-        if (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (
-                episode == self.episodes - 1 and step == self.t - 1):
+        if end_condition:
             out_file = os.path.join("expert_trajectories",
                                     self.loadQ + "_episodes_collected" + str(self.episodes) + ".csv")
             if not os.path.exists(out_file):
@@ -174,7 +179,7 @@ class BlobQAgent:
                 if self.observe:
                     state_next = GridState(player_position=copy.copy(env.player), food_position=copy.copy(env.food),
                                            enemy_position=copy.copy(env.enemy))
-                    self._collect_trajectory_data(state_before, state_next, step, episode, action, reward, obs, env)
+                    self._collect_trajectory_data(state_before, state_next, step, episode, action, reward, obs, env, done)
 
                 max_future_q = np.max(self.Q[new_observation])
                 current_q = self.Q[obs][action]
@@ -231,7 +236,8 @@ class BlobQAgent:
             # env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
             #                                                         self.food_reward, self.enemy_penalty,
             #                                                         self.move_penalty)
-            env_string = "dizzy40%-{0}x{1}".format(self.dizzy, self.episodes)
+            env_string = "episodic_dizzy(0)_{1}".format(self.dizzy, self.episodes)
+            # env_string = "dizzy40%-{0}x{1}".format(self.dizzy, self.episodes)
             out_name = "Q_checkpoints/" + env_string + self.checkpoint_name + "__avg__" + str(
                 self.model_avg_reward) + "__success rate__" + str(self.model_success_rate)
             fig_out_name = "Q_checkpoints/figures/" + env_string + self.checkpoint_name + "__avg__" + str(
@@ -276,10 +282,10 @@ def inspect_model(model, dizzy=False, render_wait=250):
     agent.run()
 
 
-# agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, blob_env_size=10, loadQtable="10x50000x200x__re(25, -300, -1)__pass3__avg__-0.04__success rate__0.96318")
+# agent = BlobQAgent(checkpoint_name="pass1", episodes=50000)
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, dizzy_agent=True, loadQtable="dizzy-Truex50000pass2__avg__-114.63__success rate__0.9562")
 # agent = BlobQAgent(checkpoint_name="pass4", episodes=50000, dizzy_agent=True, loadQtable="dizzy40%-Truex50000pass3__avg__-152.89__success rate__0.97656")
 # agent.run()
-#collect_trajectories(nr=1000000, dizzy=True)
+collect_trajectories(nr=2500, checkpoint='episodic_dizzy(0)_50000pass1__avg__-46.0__success rate__0.8485')
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)
-inspect_model(model="dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826", render_wait=50, dizzy=True)
+# inspect_model(model="dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826", render_wait=50, dizzy=True)

@@ -7,6 +7,12 @@ from transition import ThetaEstimator, load_files
 from write_policy import write_out_policies
 from mwal import mwal
 
+def count_file(file):
+    filepath = os.path.join('gridworld', 'expert_trajectories', file)
+    with open(filepath, 'r') as f:
+        reader = csv.reader(f)
+        lines = len(list(reader))
+    return lines
 
 def run_mwal(env, expert_file, m=None):
     """
@@ -16,17 +22,20 @@ def run_mwal(env, expert_file, m=None):
     :return:
     """
     gamma = 0.95
-    T = 500
+    T = 150
     weak_estimation = False
+
+    # Number of trajectory steps.
+    total_steps = count_file(expert_file)
 
     if os.path.exists(os.path.join('saved_files', expert_file)):
         F, THETA, E = load_files(expert_file)
         THETA = THETA.todok()
     else:
-        m_req = ThetaEstimator(env).compute_trajectories_threshold()
+        m_req = ThetaEstimator(env, total_steps).compute_trajectories_threshold()
         if m < m_req:
             weak_estimation = True
-        F, THETA, E = process_trajectories(expert_file, env, m, weak_estimation, True)
+        F, THETA, E = process_trajectories(expert_file, env, m, weak_estimation, total_steps, True)
 
     # Run the mwal algorithm
     PP, MM, ITER, TT = mwal(THETA=THETA, F=F, E=E, gamma=gamma, INIT_FLAG='first', T=T, fname=expert_file)
@@ -51,5 +60,5 @@ def run_mwal(env, expert_file, m=None):
 if __name__ == '__main__':
     # environment = GridEnv()
     run_mwal(env=None,
-             expert_file='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500',
+             expert_file='episodic_dizzy(0)_50000pass1__avg__-46.0__success rate__0.8485_episodes_collected2500.csv',
              m=2500)

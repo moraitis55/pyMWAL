@@ -1,9 +1,7 @@
 import ast
 import csv
-import datetime
 
 from tqdm import tqdm
-import numpy as np
 from gridworld.grid import GridState
 from transition import ThetaEstimator
 
@@ -69,7 +67,7 @@ def csvdata_to_trajectory_state(csv_entry):
     return tr
 
 
-def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=False):
+def process_trajectories(expert_file: str, env, m, weak_estimation, total_steps, save_files=False):
     """
     This function process the trajectories from a file and constructs feature and transition matrices
     :param expert_file: Name of the expert file containing trajectories used to teach the apprentice.
@@ -78,15 +76,10 @@ def process_trajectories(expert_file: str, env, m, weak_estimation, save_files=F
     :param weak_estimation: Determines whether we have the number of expert trajectories required from the algorithm.
     :return:
     """
-    process_start = datetime.datetime.utcnow()
-    nS = env.state_space_size
-    nA = env.action_space_size
-
-    total_steps = m * env.episode_steps
-    te = ThetaEstimator(env=env, m=m, weak_estimation=weak_estimation, fname=expert_file, modify_env=True)
+    te = ThetaEstimator(env=env, total_steps=total_steps, m=m, weak_estimation=weak_estimation, fname=expert_file,
+                        modify_env=True)
 
     for step in tqdm(trajectory_generator(expert_file), total=total_steps, desc="Processing expert trajectories"):
-
         t = csvdata_to_trajectory_state(step)
 
         state_index = env.state_space_index[t.state_before.__str__()]

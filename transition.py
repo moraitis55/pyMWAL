@@ -81,7 +81,7 @@ class ThetaEstimator:
     """
     K = ...  # type: dok_matrix
 
-    def __init__(self, env, m=None, est_trans_error=0.1, est_trans_delta=0.1, weak_estimation=False, fname=None, modify_env=False):
+    def __init__(self, env, total_steps, m=None, est_trans_error=0.1, est_trans_delta=0.1, weak_estimation=False, fname=None, modify_env=False):
 
         if modify_env:
             # add one more state in environment (absorbing state)
@@ -106,8 +106,7 @@ class ThetaEstimator:
         self.E_counts = np.zeros(shape=(env.feature_nr,))
         self.E = None
         self.m = m
-        if m is not None:
-            self.total_steps = self.m * env.episode_steps
+        self.total_steps = total_steps
         self.trans_counter = 0
         self.fname = fname
 
