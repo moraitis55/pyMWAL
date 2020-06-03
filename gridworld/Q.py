@@ -159,8 +159,8 @@ class BlobQAgent:
             if self.stats_every and episode % self.stats_every == 0 and episode > 0:
                 self._printWindowStats(episode_rewards, episode)
 
-            # self._printif("====+====+====+====+====+====+====+====+====")
-            # self._printif("|-- Episode {} starting.".format(episode))
+            self._printif("====+====+====+====+====+====+====+====+====")
+            self._printif("|-- Episode {} starting.".format(episode))
 
             total_reward = 0
             total_success = 0
@@ -205,8 +205,8 @@ class BlobQAgent:
 
                 total_reward += reward
 
-                # if (step % 50 == 0 and step > 1) or done:  # print episode total reward every 50 steps
-                #     self._printif("| [t = {}]\tReward = {:.4f}".format(step, total_reward))
+                if (step % 50 == 0 and step > 1) or done:  # print episode total reward every 50 steps
+                    self._printif("| [t = {}]\tReward = {:.4f}".format(step, total_reward))
 
                 if done:
                     if reward == env.food_reward:
@@ -216,7 +216,7 @@ class BlobQAgent:
                         result = "\t\t< FAILURE! >"
                     else:
                         result = "\t\t< SURVIVED! >"
-                    # self._printif("|-- Episode {} finished after {} steps.".format(episode, step) + result)
+                    self._printif("|-- Episode {} finished after {} steps.".format(episode, step) + result)
                     # if in respawn mode reset the environment and start over for the remaining steps of the episode.
                     if self.env_respawn:
                         env.reset()
