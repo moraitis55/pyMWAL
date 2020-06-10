@@ -9,7 +9,7 @@ from opt_policy_and_feat_exp import opt_policy_and_feat_exp
 from transition import save_files
 
 
-def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
+def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None, test_env=None):
     """
     This class implements the MWAL algorithm from:
 
@@ -47,9 +47,9 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
 
      Output:
 
-     PP: The T x N matrix of output policies. PP(i, j) is the action taken in the jth state
+     PP: The T x N matrix of output policies_VVzero. PP(i, j) is the action taken in the jth state
        by the ith output policy. To achieve the guarantees of the algorithm, one must, at time 0, choose to follow
-       exactly one of the output policies, each with probability 1/T.
+       exactly one of the output policies_VVzero, each with probability 1/T.
 
      MM: The T x K matrix of output "feature expectations". MM(i, j) is the expected cumulative discounted value for
        the jth feature when following the ith output policy (and when starting at the initial state distribution).
@@ -76,6 +76,7 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
     # initialize weights list with first weight vector.
     W = np.ones(K)
 
+    RR = []
     ITER = np.ndarray((T,))
     TT = np.ndarray((T,))
     MM = np.ndarray((T, K))
@@ -87,7 +88,9 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
         t1 = time.time()
 
 
-        P, M, VV, ITER[i] = opt_policy_and_feat_exp(THETA, F, gamma, w, INIT_FLAG, VV, tol)
+        P, M, VV, ITER[i], exp_rwd = opt_policy_and_feat_exp(THETA=THETA, F=F, GAMMA=gamma, w=w, INIT_FLAG=INIT_FLAG, VV=VV, tol=tol, test_env=test_env)
+
+        RR.append(exp_rwd)
 
         # terminal condition (case where expert is dominated)
         featdiff = M - E
@@ -119,4 +122,4 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None):
     if fname is not None:
         save_files(fname, PP=PP, MM=MM)
 
-    return PP, MM, ITER, TT
+    return PP, MM, ITER, TT, RR

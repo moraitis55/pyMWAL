@@ -6,6 +6,7 @@ from gridworld.grid import GridEnv
 from transition import ThetaEstimator, load_files
 from write_policy import write_out_policies
 from mwal import mwal
+from exec_policies import execute_policies, save_plot
 
 def count_file(file):
     filepath = os.path.join('gridworld', 'expert_trajectories', file)
@@ -14,15 +15,16 @@ def count_file(file):
         lines = len(list(reader))
     return lines
 
-def run_mwal(env, expert_file, m=None):
+def run_mwal(env, expert_file, dizzy=False, env_respawn=False, m=None):
     """
     :param env: The learned environment.
     :param expert_file: Name of the expert file containing trajectories used to teach the apprentice.
+    :param dizzy: tells the environment if the agent is dizzy (stochastic environment)
     :param m: The number of expert trajectories used to teach the apprentice (for manually insertion).
     :return:
     """
     gamma = 0.95
-    T = 150
+    T = 1
     weak_estimation = False
 
     # Number of trajectory steps.
@@ -37,8 +39,10 @@ def run_mwal(env, expert_file, m=None):
             weak_estimation = True
         F, THETA, E = process_trajectories(expert_file, env, m, weak_estimation, total_steps, True)
 
+    env = GridEnv(dizzy=dizzy)
     # Run the mwal algorithm
-    PP, MM, ITER, TT = mwal(THETA=THETA, F=F, E=E, gamma=gamma, INIT_FLAG='first', T=T, fname=expert_file)
+    PP, MM, ITER, TT, RR = mwal(THETA=THETA, F=F, E=E, gamma=gamma, INIT_FLAG='first', T=T, fname=expert_file,
+                                test_env=env)
 
     # # Determine the mixing coefficients (trivial)
     # c = np.ones((T, 1)) / T
@@ -54,11 +58,16 @@ def run_mwal(env, expert_file, m=None):
     #
     # # Write out that policy
 
-    write_out_policies(PP, expert_file)
+    dir = write_out_policies(PP, expert_file)
+    execute_policies(path_to_policies=dir, dizzy=dizzy, env_respawn=env_respawn, env=env)
+    save_plot(policy_data=RR, label='expected reward', policy_dir=dir)
+
+
+
 
 
 if __name__ == '__main__':
-    # environment = GridEnv()
-    run_mwal(env=None,
-             expert_file='episodic_dizzy(0)_50000pass1__avg__-46.0__success rate__0.8485_episodes_collected2500.csv',
+    environment = GridEnv()
+    run_mwal(env=environment ,
+             expert_file='test_collected2500.csv',
              m=2500)

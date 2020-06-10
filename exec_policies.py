@@ -1,23 +1,54 @@
 import os
 import argparse
-from grid import GridEnv, GridState
+import numpy as np
+from matplotlib import pyplot as plt
+from gridworld.grid import GridEnv, GridState
 from glob import glob
 from tqdm import tqdm
 
 MODEL = '../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500'
 MODEL2 = '../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected1000000'
-MODEL3 = os.path.join('..', 'saved_files', 'dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826_episodes_collected2500')
+MODEL3 = os.path.join('..', 'saved_files',
+                      'dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826_episodes_collected2500')
 FOLDER = 'policies'
 
+def get_policy_expected_rwd(policy, exp_reward_function, env, env_respawn, episodes=2500):
+    print("testing policy for expected reward in {0} episodes".format(episodes))
 
-def execute_policy(model, policies_folder, policy_nr, dizzy=False, episodes=2500, pr=False, render=False):
-    print("Executing\nmodel:{0}\nfolder:{1}\ndizzy:{2}".format(model,policies_folder,dizzy))
-    if dizzy:
-        env = GridEnv(dizzy=True)
-    else:
-        env = GridEnv()
+    total_rwd = 0
 
-    policy_file = os.path.join(model, policies_folder, 'policy_' + str(policy_nr) + '.csv')
+    for episode in range(episodes):
+        env.reset()
+
+        for step in range(env.episode_steps):
+            st = GridState(
+                player_position=(env.player.x, env.player.y),
+                food_position=(env.food.x, env.food.y),
+                enemy_position=(env.enemy.x, env.enemy.y)
+            )
+            st_index = env.state_space_index[st.__str__()]
+
+            action = int(policy[st_index])
+            new_observation, reward, done = env.step(action)
+            exp_rwd = exp_reward_function[action, st_index]
+
+            total_rwd += exp_rwd
+
+            if done:
+                if env_respawn:
+                    env.reset()
+                else:
+                    break
+    return total_rwd
+
+
+def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=2500, pr=False, render=False, env_respawn=False):
+    print("Executing\nmodel:{0}\ndizzy:{1}".format(path_to_policy, dizzy))
+
+    if env is None:
+        env = GridEnv(dizzy=dizzy)
+
+    policy_file = os.path.join(path_to_policy, 'policy_' + str(policy_nr) + '.csv')
     t1 = open(policy_file, 'r')
     policy = t1.readlines()
     t1.close()
@@ -63,7 +94,6 @@ def execute_policy(model, policies_folder, policy_nr, dizzy=False, episodes=2500
                     print("| [t = {}]\tReward = {:.4f}".format(step, episode_reward_counter))
 
             if done:
-                env.reset()
                 if reward == env.food_reward:
                     result = "\t\t< SUCCESS! >"
                     total_successes += 1
@@ -73,6 +103,11 @@ def execute_policy(model, policies_folder, policy_nr, dizzy=False, episodes=2500
                     result = "\t\t< SURVIVED! >"
                 if pr:
                     print("|-- Episode {} finished after {} steps.".format(episode, step) + result)
+
+                if env_respawn:
+                    env.reset()
+                else:
+                    break
 
             episode_rewards.append(episode_reward_counter)
         success_rate = total_successes / episodes
@@ -86,8 +121,24 @@ def execute_policy(model, policies_folder, policy_nr, dizzy=False, episodes=2500
     return total_reward, total_successes, success_rate
 
 
-def execute_policies(model, policies_folder, exec_max=None, episodes=2500):
-    dir = os.path.join(model, policies_folder, '*.csv')
+def save_plot(policy_data, policy_dir, label='reward'):
+    plot_dir = os.path.join(policy_dir, 'plots')
+    if not os.path.exists(plot_dir):
+        os.mkdir(plot_dir)
+    num_policies = policy_data.__len__()
+    y_val = [x for x in policy_data]
+    x_val = [x[0] for x in enumerate(policy_data)]
+    plt.plot(x_val, y_val)
+    plt.plot(x_val, y_val, 'or')
+    plt.xlabel('policy')
+    plt.ylabel('2500 episodes ' + label)
+    plt.grid(True)
+    plt.show()
+    plt.savefig(plot_dir + '/' + label)
+
+
+def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None):
+    dir = os.path.join(path_to_policies, '*.csv')
     policies_list = glob(dir)
 
     if exec_max is not None:
@@ -99,21 +150,32 @@ def execute_policies(model, policies_folder, exec_max=None, episodes=2500):
     sc_count = 0
     sr_count = 0
 
+    # a list of policies total rewards used for count plot.
+    policies_rwds = []
+
     rwd_max = float('-inf')
+    rwd_min = float('+inf')
     policy_max = None
 
-    env = GridEnv()
+    if env is None:
+        env = GridEnv(dizzy=dizzy)
 
     for i, policy in enumerate(tqdm(policies_list)):
-        rwd, sc, sr = execute_policy(model, policies_folder, i, env)
+        rwd, sc, sr = execute_policy(path_to_policy=path_to_policies, policy_nr=i, env=env, env_respawn=env_respawn, episodes=episodes)
 
         rwd_count += rwd
         sc_count += sc
         sr_count += sr
 
+        policies_rwds.append(rwd)
+
         if rwd > rwd_max:
             rwd_max = rwd
             policy_max = i
+        if rwd < rwd_min:
+            rwd_min = rwd
+
+    save_plot(policy_data=policies_rwds, policy_dir=path_to_policies)
 
     print("\n\nAverages between {0} policies:".format(policy_nr))
     print("reward {0}".format(rwd_count / policy_nr))
@@ -123,28 +185,30 @@ def execute_policies(model, policies_folder, exec_max=None, episodes=2500):
 
 
 # execute_policy(MODEL3,FOLDER,policy_nr=474,pr=True, render=True, dizzy_agent=True)
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-m", help="model to execute", required=False)
-    parser.add_argument("-mx", help="max policies to execute", default=None)
-    parser.add_argument("-p", help="policy to execute", required=False)
-    parser.add_argument("-v", help="model version", required=False)
-    parser.add_argument("--r", help="render", action="store_true")
-    parser.add_argument("--d", help="dizzy agent", action="store_true")
-
-    args = parser.parse_args()
-    dizzy = False
-    render = False
-    model = MODEL
-    folder = FOLDER
-
-    if args.v:
-        folder = folder + "V" + str(args.v)
-    if args.m:
-        model = args.m
-    if args.r:
-        render = True
-    if args.d:
-        dizzy = True
-
-    execute_policy(model=model, policies_folder=folder, policy_nr=args.p, dizzy=dizzy, render=render)
+# execute_policies(
+#     path_to_policies='../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected1000000/policiesV0', env_respawn=True)
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("-m", help="model to execute", required=False)
+#     parser.add_argument("-mx", help="max policies to execute", default=None)
+#     parser.add_argument("-p", help="policy to execute", required=False)
+#     parser.add_argument("-v", help="model version", required=False)
+#     parser.add_argument("--r", help="render", action="store_true")
+#     parser.add_argument("--d", help="dizzy agent", action="store_true")
+#
+#     args = parser.parse_args()
+#     dizzy = False
+#     render = False
+#     model = MODEL
+#     folder = FOLDER
+#
+#     if args.v:
+#         folder = folder + "V" + str(args.v)
+#     if args.m:
+#         model = args.m
+#     if args.r:
+#         render = True
+#     if args.d:
+#         dizzy = True
+#
+#     execute_policy(model=model, policies_folder=folder, policy_nr=args.p, dizzy=dizzy, render=render)

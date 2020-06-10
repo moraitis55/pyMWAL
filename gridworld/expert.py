@@ -7,7 +7,7 @@ from transition import ThetaEstimator
 
 
 def trajectory_generator(model):
-    with open('gridworld/expert_trajectories/' + model + '.csv', 'r') as f:
+    with open('gridworld/expert_trajectories/' + model, 'r') as f:
         rd = csv.reader(f)
         for row in zip(rd):
             yield row

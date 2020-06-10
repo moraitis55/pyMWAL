@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.sparse import coo_matrix, dok_matrix
+from exec_policies import get_policy_expected_rwd
 
 
-def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
+def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=None):
     """
 
     This function computes the optimal policy with respect to a particular reward function, and simultaneously computes
@@ -41,7 +42,7 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
     :type THETA: dok_matrix
     """
     if tol is None:
-        tol = 0.0001
+        tol = 0.99
 
     SA, S = THETA.shape
     A = int(SA / S)
@@ -94,7 +95,7 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
 
         # conserve memory
         del dummy
-        del QA
+        # del QA
 
         # AA(i,j,:) = 1 if the ith action was the optimal in state jth, else AA(i,j,:)=0
         AA = np.zeros(shape=(A, S, K))
@@ -113,5 +114,9 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, tol=None):
 
         ITER = ITER + 1
 
+    exp_rwd = None
+    if test_env is not None:
+        exp_rwd = get_policy_expected_rwd(policy=P, exp_reward_function=QA, env=test_env, env_respawn=False)
+
     M = init @ VV.toarray()
-    return P, M, VV, ITER
+    return P, M, VV, ITER, exp_rwd

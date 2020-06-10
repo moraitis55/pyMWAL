@@ -9,6 +9,7 @@ from sklearn.preprocessing import normalize
 
 def save_files(fname, F=None, THETA=None, E=None, PP=None, MM=None):
     print("\nSaving files..")
+    fname = os.path.splitext(fname)[0]
     dir = os.path.join('saved_files', fname)
     if not os.path.exists('saved_files'):
         os.mkdir('saved_files')
