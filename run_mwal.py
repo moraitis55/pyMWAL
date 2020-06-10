@@ -24,7 +24,7 @@ def run_mwal(env, expert_file, dizzy=False, env_respawn=False, m=None):
     :return:
     """
     gamma = 0.95
-    T = 1
+    T = 500
     weak_estimation = False
 
     # Number of trajectory steps.
@@ -64,10 +64,12 @@ def run_mwal(env, expert_file, dizzy=False, env_respawn=False, m=None):
 
 
 
-
+file1='episodic_dizzy40%_False_50000pass4__avg__4.16__success_rate__0.97136_episodes_collected90000.csv'
+file2='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005_episodes_collected2500.csv'
 
 if __name__ == '__main__':
-    environment = GridEnv()
+    environment = GridEnv(dizzy=False)
     run_mwal(env=environment ,
-             expert_file='test_collected2500.csv',
-             m=2500)
+             expert_file=file1,
+             m=2500,
+             dizzy=False)
