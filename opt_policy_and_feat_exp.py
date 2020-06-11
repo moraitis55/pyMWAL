@@ -42,7 +42,7 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=Non
     :type THETA: dok_matrix
     """
     if tol is None:
-        tol = 0.99
+        tol = 0.0001
 
     SA, S = THETA.shape
     A = int(SA / S)
