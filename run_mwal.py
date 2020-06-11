@@ -9,6 +9,7 @@ from mwal import mwal
 from exec_policies import execute_policies, save_plot
 
 def count_file(file):
+    print("Reading expert file..")
     filepath = os.path.join('gridworld', 'expert_trajectories', file)
     with open(filepath, 'r') as f:
         reader = csv.reader(f)
