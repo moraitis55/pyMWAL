@@ -232,6 +232,7 @@ class BlobQAgent:
         self.model_avg_reward = round(mean(episode_rewards), 2)
         self.model_success_rate = success_counter / self.episodes
 
+        fig_out_name = None
         if self.checkpoint_name:
             # env_string = "{0}x{1}x{2}x__re({3}, {4}, {5})__".format(self.blob_env_size, self.episodes, self.t,
             #                                                         self.food_reward, self.enemy_penalty,
@@ -267,10 +268,12 @@ class BlobQAgent:
                 plt.savefig(name, bbox_inches='tight')
             plt.show()
 
+        print("Total rewards in {0} episodes: {1}\nTotal successes:{2}".format(self.episodes, sum(episode_rewards), sum(episode_successes)))
+
 
 def collect_trajectories(nr=6, dizzy=False, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
     start = time.time()
-    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint, episodes=nr, dizzy_agent=dizzy)
+    agent = BlobQAgent(observe_mode=True, loadQtable=checkpoint, episodes=nr, dizzy_agent=dizzy, silence=True)
     agent.run()
     end = time.time()
     print("NOTICE: {0} trajectories were collected in {1} secs / {2} mins".format(nr, end - start, (end - start) / 60))
@@ -281,11 +284,17 @@ def inspect_model(model, dizzy=False, render_wait=250):
                        env_respawn=True, dizzy_agent=dizzy)
     agent.run()
 
+def execute_expert(model, dizzy, env_respawn=False):
+    agent = BlobQAgent(loadQtable=model, dizzy_agent=dizzy, env_respawn=env_respawn, silence=False, epsilon=0, episodes=2500,
+                       stats_every=None)
+    agent.run()
+
 
 # agent = BlobQAgent(checkpoint_name="pass1", episodes=50000)
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, dizzy_agent=True, loadQtable="dizzy-Truex50000pass2__avg__-114.63__success rate__0.9562")
 # agent = BlobQAgent(checkpoint_name="pass4", episodes=50000, dizzy_agent=True, loadQtable="dizzy40%-Truex50000pass3__avg__-152.89__success rate__0.97656")
 # agent.run()
-collect_trajectories(nr=2500, checkpoint='episodic_dizzy(0)_50000pass1__avg__-46.0__success rate__0.8485')
+#collect_trajectories(nr=1000000, checkpoint='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005', dizzy=True)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)
 # inspect_model(model="dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826", render_wait=50, dizzy=True)
+execute_expert('dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826', dizzy=False)
