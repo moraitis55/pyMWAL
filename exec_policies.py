@@ -137,7 +137,7 @@ def save_plot(policy_data, policy_dir, label='reward'):
     plt.savefig(plot_dir + '/' + label)
 
 
-def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None):
+def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None, save_plot=False):
     dir = os.path.join(path_to_policies, '*.csv')
     policies_list = glob(dir)
 
@@ -175,7 +175,8 @@ def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=F
         if rwd < rwd_min:
             rwd_min = rwd
 
-    save_plot(policy_data=policies_rwds, policy_dir=path_to_policies)
+    if save_plot:
+        save_plot(policy_data=policies_rwds, policy_dir=path_to_policies)
 
     print("\n\nAverages between {0} policies:".format(policy_nr))
     print("reward {0}".format(rwd_count / policy_nr))
@@ -187,28 +188,19 @@ def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=F
 # execute_policy(MODEL3,FOLDER,policy_nr=474,pr=True, render=True, dizzy_agent=True)
 # execute_policies(
 #     path_to_policies='../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected1000000/policiesV0', env_respawn=True)
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("-m", help="model to execute", required=False)
-#     parser.add_argument("-mx", help="max policies to execute", default=None)
-#     parser.add_argument("-p", help="policy to execute", required=False)
-#     parser.add_argument("-v", help="model version", required=False)
-#     parser.add_argument("--r", help="render", action="store_true")
-#     parser.add_argument("--d", help="dizzy agent", action="store_true")
-#
-#     args = parser.parse_args()
-#     dizzy = False
-#     render = False
-#     model = MODEL
-#     folder = FOLDER
-#
-#     if args.v:
-#         folder = folder + "V" + str(args.v)
-#     if args.m:
-#         model = args.m
-#     if args.r:
-#         render = True
-#     if args.d:
-#         dizzy = True
-#
-#     execute_policy(model=model, policies_folder=folder, policy_nr=args.p, dizzy=dizzy, render=render)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", help="model to execute")
+    parser.add_argument("-mx", help="max policies to execute", default=None)
+    parser.add_argument("-p", help="policy to execute", required=False)
+    parser.add_argument("--r", help="render", action="store_true")
+    parser.add_argument("--d", help="dizzy agent", action="store_true")
+    parser.add_argument("--s", help="save policies plots", action="store_true")
+
+    args = parser.parse_args()
+
+    if args.p is not None:
+       execute_policy(model=args.m, policy_nr=args.p, dizzy=dizzy, render=args.r)
+    else:
+       execute_policies(path_to_policies=args.m, exec_max=args.mx, dizzy=args.d, save_plot=args.s)
+       
