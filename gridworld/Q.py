@@ -11,16 +11,17 @@ from matplotlib import style
 from tqdm import tqdm
 from statistics import mean
 import pandas as pd
+from tqdm import tqdm
 
 style.use("ggplot")
 
 
 class BlobQAgent:
 
-    def __init__(self, observe_mode=False, loadQtable: str = None, blob_env_size=10, steps=200, episodes=25000,
+    def __init__(self, observe_mode=False, loadQtable = None, blob_env_size=10, steps=200, episodes=25000,
                  stats_every=3000, enable_render=True, render_every=None, render_wait=250, epsilon=0.9,
                  epsilon_decay=0.9998, lr=0.1, discount=0.95, checkpoint_name=None, silence=False, fr=25, ep=-300,
-                 mp=-1, env_respawn=False, dizzy_agent=False):
+                 mp=-1, env_respawn=False, dizzy_agent=False, inspect=False):
         self.observe = observe_mode
         self.loadQ = loadQtable
         self.t = steps
@@ -30,6 +31,7 @@ class BlobQAgent:
         self.render_every = render_every
         self.render_wait = render_wait
         self._silent = silence
+        self.inspect = inspect
 
         # environment variables
         self.blob_env_size = blob_env_size
@@ -193,7 +195,8 @@ class BlobQAgent:
                     new_q = (1 - self.learning_rate) * current_q + self.learning_rate * (
                             reward + self.discount * max_future_q)
 
-                self.Q[obs][action] = new_q  # update Q value
+                if not self.inspect:
+                    self.Q[obs][action] = new_q  # update Q value
 
                 ################### RENDER #######################################
                 if self.render_every and episode % self.render_every == 0:
@@ -269,6 +272,7 @@ class BlobQAgent:
             plt.show()
 
         print("Total rewards in {0} episodes: {1}\nTotal successes:{2}".format(self.episodes, sum(episode_rewards), sum(episode_successes)))
+        return sum(episode_rewards), sum(episode_successes)
 
 
 def collect_trajectories(nr=6, dizzy=False, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
@@ -285,9 +289,18 @@ def inspect_model(model, dizzy=False, render_wait=250):
     agent.run()
 
 def execute_expert(model, dizzy, env_respawn=False):
-    agent = BlobQAgent(loadQtable=model, dizzy_agent=dizzy, env_respawn=env_respawn, silence=False, epsilon=0, episodes=2500,
-                       stats_every=None)
-    agent.run()
+    agent = BlobQAgent(loadQtable=model, dizzy_agent=dizzy, env_respawn=env_respawn, silence=True, epsilon=0, episodes=2500,
+                       stats_every=None, inspect=True)
+    reward = 0
+    success = 0
+    for i in tqdm(range(10)):
+        run_reward, run_success = agent.run()
+        reward += run_reward
+        success += run_success
+    reward = reward/10
+    success = success/10
+    print("Total rewards in 2500 episodes (average 10 runs): {0}\nTotal successes:{1}".format(reward, success))
+
 
 
 # agent = BlobQAgent(checkpoint_name="pass1", episodes=50000)
@@ -297,4 +310,4 @@ def execute_expert(model, dizzy, env_respawn=False):
 #collect_trajectories(nr=1000000, checkpoint='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005', dizzy=True)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)
 # inspect_model(model="dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826", render_wait=50, dizzy=True)
-execute_expert('dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826', dizzy=False)
+execute_expert('episodic_dizzy40%_False_50000pass4__avg__4.16__success_rate__0.97136', dizzy=False)
