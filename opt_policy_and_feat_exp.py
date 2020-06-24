@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse import coo_matrix, dok_matrix
 from exec_policies import get_policy_expected_rwd
+from random import randrange
 
 
 def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=None):
@@ -73,6 +74,8 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=Non
 
     ITER = 0
 
+    exception_number = 0
+
     while delta > tol:
         print("\nValue Iteration \nstep {0}   delta: {1}".format(str(ITER), str(delta)))
         # value iteration (todo: validate F_long usage as the R(s) of the type??)
@@ -88,7 +91,11 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=Non
         QA = QA.toarray()
         for i in range(S):
             dump = QA[:,i]
-            P[i] = np.random.choice(np.where(dump == dump.max())[0])
+            try:
+                P[i] = np.random.choice(np.where(dump == dump.max())[0])
+            except Exception:
+                P[i] = randrange(4)
+                exception_number += 1
         P = P.astype(int)
 
         # P = QA.toarray().argmax(axis=0)
@@ -119,4 +126,4 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=Non
         exp_rwd = get_policy_expected_rwd(policy=P, exp_reward_function=QA, env=test_env, env_respawn=False)
 
     M = init @ VV.toarray()
-    return P, M, VV, ITER, exp_rwd
+    return P, M, VV, ITER, exp_rwd, exception_number

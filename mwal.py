@@ -82,13 +82,17 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None, test_env=No
     MM = np.ndarray((T, K))
     PP = np.ndarray((T, S))
 
+    ex_num = 0
+
     for i in tqdm(range(T), desc="MWAL episode:"):
         # set Weights
         w = W / W.sum()
         t1 = time.time()
 
 
-        P, M, VV, ITER[i], exp_rwd = opt_policy_and_feat_exp(THETA=THETA, F=F, GAMMA=gamma, w=w, INIT_FLAG=INIT_FLAG, VV=VV, tol=tol, test_env=test_env)
+        P, M, VV, ITER[i], exp_rwd, exception_number = opt_policy_and_feat_exp(THETA=THETA, F=F, GAMMA=gamma, w=w, INIT_FLAG=INIT_FLAG, VV=VV, tol=tol, test_env=test_env)
+
+        ex_num += exception_number
 
         RR.append(exp_rwd)
 
@@ -122,4 +126,5 @@ def mwal(THETA, F, E, gamma, INIT_FLAG, T=500, tol=None, fname=None, test_env=No
     if fname is not None:
         save_files(fname, PP=PP, MM=MM)
 
+    print("exception number: {0}".format(ex_num))
     return PP, MM, ITER, TT, RR
