@@ -42,7 +42,8 @@ def get_policy_expected_rwd(policy, exp_reward_function, env, env_respawn, episo
     return total_rwd
 
 
-def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=2500, pr=False, render=False, env_respawn=False):
+def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=2500, pr=False, render=False, env_respawn=False,
+                   return_extra_statistics=False):
     print("Executing\nmodel:{0}\ndizzy:{1}".format(path_to_policy, dizzy))
 
     if env is None:
@@ -57,7 +58,10 @@ def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=25
     total_reward = 0
     total_successes = 0
 
-    for episode in range(episodes):
+    episodes_reward_counter = []
+    episodes_success_counter = []
+
+    for episode in tqdm(range(episodes)):
         env.reset()
 
         if pr:
@@ -109,7 +113,10 @@ def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=25
                 else:
                     break
 
-            episode_rewards.append(episode_reward_counter)
+        episode_rewards.append(episode_reward_counter)
+        episodes_success_counter.append(total_successes)
+
+        episodes_reward_counter.append(total_reward)
         success_rate = total_successes / episodes
 
     if pr:
@@ -118,7 +125,10 @@ def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=25
                                                                                                              total_reward,
                                                                                                              total_successes,
                                                                                                              success_rate))
-    return total_reward, total_successes, success_rate
+    if return_extra_statistics:
+        return total_reward, total_successes, success_rate, episodes_reward_counter, episode_rewards, episodes_success_counter
+    else:
+        return total_reward, total_successes, success_rate
 
 
 def save_plot(policy_data, policy_dir, label='reward'):
@@ -200,7 +210,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.p is not None:
-       execute_policy(model=args.m, policy_nr=args.p, dizzy=dizzy, render=args.r)
+       execute_policy(model=args.m, policy_nr=args.p, dizzy=args.d, render=args.r)
     else:
        execute_policies(path_to_policies=args.m, exec_max=args.mx, dizzy=args.d, save_plot=args.s)
        

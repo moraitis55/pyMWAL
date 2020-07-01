@@ -128,6 +128,8 @@ dmypy.json
 
 # saved files'
 gridworld/expert_trajectories
+gridworld/Q_checkpoints
+statistics
 saved_files
 transition_data_10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes1000.pickle
 transition_data_10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes1000_norm.pickle

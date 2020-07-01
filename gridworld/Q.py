@@ -6,7 +6,7 @@ import time
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from grid import GridEnv, GridState
+from gridworld.grid import GridEnv, GridState
 from matplotlib import style
 from tqdm import tqdm
 from statistics import mean
@@ -18,10 +18,10 @@ style.use("ggplot")
 
 class BlobQAgent:
 
-    def __init__(self, observe_mode=False, loadQtable = None, blob_env_size=10, steps=200, episodes=25000,
+    def __init__(self, observe_mode=False, loadQtable=None, blob_env_size=10, steps=200, episodes=25000,
                  stats_every=3000, enable_render=True, render_every=None, render_wait=250, epsilon=0.9,
                  epsilon_decay=0.9998, lr=0.1, discount=0.95, checkpoint_name=None, silence=False, fr=25, ep=-300,
-                 mp=-1, env_respawn=False, dizzy_agent=False, inspect=False):
+                 mp=-1, env_respawn=False, dizzy_agent=False, inspect=False, env=None):
         self.observe = observe_mode
         self.loadQ = loadQtable
         self.t = steps
@@ -40,6 +40,7 @@ class BlobQAgent:
         self.move_penalty = mp
         self.env_respawn = env_respawn
         self.dizzy = dizzy_agent
+        self.env = env
 
         if observe_mode:  # in observe mode we don't need exploration
             self.epsilon = 0
@@ -119,7 +120,7 @@ class BlobQAgent:
                                  dpf, dpe, feats, action, reward / -env.enemy_penalty])
         if self.env_respawn:
             end_condition = (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (
-                episode == self.episodes - 1 and step == self.t - 1)
+                    episode == self.episodes - 1 and step == self.t - 1)
         else:
             end_condition = (episode > 0 and episode % 30000 == 0 and step == self.t - 1) or (
                     episode == self.episodes - 1 and done)
@@ -144,19 +145,25 @@ class BlobQAgent:
         if self.observe:
             trajectory_collection = {}
 
-        env = GridEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t,
-                      move_penalty=self.move_penalty, enemy_penalty=self.enemy_penalty, food_reward=self.food_reward,
-                      dizzy=self.dizzy)
+        if self.env is None:
+            self.env = GridEnv(return_images=False, size=self.blob_env_size, episode_steps=self.t,
+                          move_penalty=self.move_penalty, enemy_penalty=self.enemy_penalty,
+                          food_reward=self.food_reward,
+                          dizzy=self.dizzy)
 
         episode_rewards = []
         episode_successes = []
+        episode_successes_counter = []
         success_counter = 0
+
+        episode_reward_counter = []
+        reward_counter = 0
 
         # todo: remove later.
         self.debug_states = {}
 
         for episode in tqdm(range(self.episodes), desc="Episode"):
-            env.reset()
+            self.env.reset()
 
             if self.stats_every and episode % self.stats_every == 0 and episode > 0:
                 self._printWindowStats(episode_rewards, episode)
@@ -167,30 +174,31 @@ class BlobQAgent:
             total_reward = 0
             total_success = 0
             for step in range(self.t):
-                obs = (env.player - env.food, env.player - env.enemy)
-                state_before = GridState(player_position=copy.copy(env.player), food_position=copy.copy(env.food),
-                                         enemy_position=copy.copy(env.enemy))
+                obs = (self.env.player - self.env.food, self.env.player - self.env.enemy)
+                state_before = GridState(player_position=copy.copy(self.env.player), food_position=copy.copy(self.env.food),
+                                         enemy_position=copy.copy(self.env.enemy))
 
                 if np.random.random() > self.epsilon:  # choose action based on epsilon
                     action = np.argmax(self.Q[obs])
                 else:
-                    action = np.random.randint(0, env.action_space_size)  # 4 if vertical movement not allowed
+                    action = np.random.randint(0, self.env.action_space_size)  # 4 if vertical movement not allowed
 
-                new_observation, reward, done = env.step(action)
+                new_observation, reward, done = self.env.step(action)
 
                 if self.observe:
-                    state_next = GridState(player_position=copy.copy(env.player), food_position=copy.copy(env.food),
-                                           enemy_position=copy.copy(env.enemy))
-                    self._collect_trajectory_data(state_before, state_next, step, episode, action, reward, obs, env, done)
+                    state_next = GridState(player_position=copy.copy(self.env.player), food_position=copy.copy(self.env.food),
+                                           enemy_position=copy.copy(self.env.enemy))
+                    self._collect_trajectory_data(state_before, state_next, step, episode, action, reward, obs, self.env,
+                                                  done)
 
                 max_future_q = np.max(self.Q[new_observation])
                 current_q = self.Q[obs][action]
 
                 #   update q-table
-                if reward == env.food_reward:
-                    new_q = env.food_reward
-                elif reward == env.enemy_penalty:
-                    new_q = env.enemy_penalty
+                if reward == self.env.food_reward:
+                    new_q = self.env.food_reward
+                elif reward == self.env.enemy_penalty:
+                    new_q = self.env.enemy_penalty
                 else:
                     new_q = (1 - self.learning_rate) * current_q + self.learning_rate * (
                             reward + self.discount * max_future_q)
@@ -200,36 +208,40 @@ class BlobQAgent:
 
                 ################### RENDER #######################################
                 if self.render_every and episode % self.render_every == 0:
-                    if reward == env.food_reward or reward == env.enemy_penalty:
-                        env.render(wait=self.render_wait + 400)  # freeze the image to make it easy for the viewer
+                    if reward == self.env.food_reward or reward == self.env.enemy_penalty:
+                        self.env.render(wait=self.render_wait + 400)  # freeze the image to make it easy for the viewer
                     else:
-                        env.render(wait=self.render_wait)
+                        self.env.render(wait=self.render_wait)
                 ##################################################################
 
                 total_reward += reward
+                reward_counter += reward
 
                 if (step % 50 == 0 and step > 1) or done:  # print episode total reward every 50 steps
                     self._printif("| [t = {}]\tReward = {:.4f}".format(step, total_reward))
 
                 if done:
-                    if reward == env.food_reward:
+                    if reward == self.env.food_reward:
                         result = "\t\t< SUCCESS! >"
                         total_success += 1
-                    elif reward == env.enemy_penalty:
+                    elif reward == self.env.enemy_penalty:
                         result = "\t\t< FAILURE! >"
                     else:
                         result = "\t\t< SURVIVED! >"
                     self._printif("|-- Episode {} finished after {} steps.".format(episode, step) + result)
                     # if in respawn mode reset the environment and start over for the remaining steps of the episode.
                     if self.env_respawn:
-                        env.reset()
+                        self.env.reset()
                     else:
                         break
 
             if total_success > 0:
-                success_counter +=1
+                success_counter += total_success
+            episode_successes_counter.append(success_counter)
+
             episode_rewards.append(total_reward)
             episode_successes.append(total_success)
+            episode_reward_counter.append(reward_counter)
             self.epsilon *= self.epsDecay
 
         self.model_avg_reward = round(mean(episode_rewards), 2)
@@ -271,8 +283,9 @@ class BlobQAgent:
                 plt.savefig(name, bbox_inches='tight')
             plt.show()
 
-        print("Total rewards in {0} episodes: {1}\nTotal successes:{2}".format(self.episodes, sum(episode_rewards), sum(episode_successes)))
-        return sum(episode_rewards), sum(episode_successes)
+        print("Total rewards in {0} episodes: {1}\nTotal successes:{2}".format(self.episodes, sum(episode_rewards),
+                                                                               sum(episode_successes)))
+        return episode_rewards, episode_successes, episode_reward_counter, episode_successes_counter
 
 
 def collect_trajectories(nr=6, dizzy=False, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
@@ -288,20 +301,31 @@ def inspect_model(model, dizzy=False, render_wait=250):
                        env_respawn=True, dizzy_agent=dizzy)
     agent.run()
 
-def execute_expert(model, dizzy, env_respawn=False):
-    agent = BlobQAgent(loadQtable=model, dizzy_agent=dizzy, env_respawn=env_respawn, silence=True, epsilon=0, episodes=2500,
-                       stats_every=None, inspect=True)
-    reward = 0
-    success = 0
-    for i in tqdm(range(10)):
-        run_reward, run_success = agent.run()
-        reward += run_reward
-        success += run_success
-    reward = reward/10
-    success = success/10
-    print("Total rewards in 2500 episodes (average 10 runs): {0}\nTotal successes:{1}".format(reward, success))
 
+def execute_expert(model, dizzy, env_respawn=False, env=None, iter=10, episodes=2500):
 
+    agent = BlobQAgent(loadQtable=model, dizzy_agent=dizzy, env_respawn=env_respawn, silence=True, epsilon=0,
+                       episodes=episodes,
+                       stats_every=None, inspect=True, env=env)
+
+    episode_reward = np.zeros((episodes,))
+    episode_sum_reward = np.zeros((episodes,))
+    episode_success = np.zeros((episodes,))
+    for i in tqdm(range(iter)):
+        episode_sum_rewards, dump, episode_reward_counter, episode_successes_counter = agent.run()
+        episode_successes_counter = np.asarray(episode_successes_counter)
+        episode_success = np.add(episode_success, episode_successes_counter)
+
+        episode_sum_rewards = np.asarray(episode_sum_rewards)
+        episode_sum_reward = np.add(episode_sum_reward, episode_sum_rewards)
+
+        episode_reward_counter = np.asarray(episode_reward_counter)
+        episode_reward = np.add(episode_reward, episode_reward_counter)
+    episode_avg_reward = episode_reward / iter
+    episode_sum_avg_reward = episode_sum_reward / iter
+    episode_success_avg = episode_success / iter
+    # print("Total rewards in 2500 episodes (average 10 runs): {0}\nTotal successes:{1}".format(reward, success))
+    return episode_avg_reward.tolist(), episode_sum_avg_reward.tolist(), episode_success_avg.tolist()
 
 # agent = BlobQAgent(checkpoint_name="pass1", episodes=50000)
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, dizzy_agent=True, loadQtable="dizzy-Truex50000pass2__avg__-114.63__success rate__0.9562")
