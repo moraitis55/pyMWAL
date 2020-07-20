@@ -19,7 +19,7 @@ style.use("ggplot")
 class BlobQAgent:
 
     def __init__(self, observe_mode=False, loadQtable=None, blob_env_size=10, steps=200, episodes=25000,
-                 stats_every=3000, enable_render=True, render_every=None, render_wait=250, epsilon=0.9,
+                 stats_every=3000, enable_render=True, render_every=None, render_wait=250, render_label='image', epsilon=0.9,
                  epsilon_decay=0.9998, lr=0.1, discount=0.95, checkpoint_name=None, silence=False, fr=25, ep=-300,
                  mp=-1, env_respawn=False, dizzy_agent=False, inspect=False, env=None):
         self.observe = observe_mode
@@ -30,6 +30,7 @@ class BlobQAgent:
         self.episodes = episodes
         self.render_every = render_every
         self.render_wait = render_wait
+        self.render_label = render_label
         self._silent = silence
         self.inspect = inspect
 
@@ -162,7 +163,7 @@ class BlobQAgent:
         # todo: remove later.
         self.debug_states = {}
 
-        for episode in tqdm(range(self.episodes), desc="Episode"):
+        for episode in tqdm(range(self.episodes), desc="Episode", disable=self._silent):
             self.env.reset()
 
             if self.stats_every and episode % self.stats_every == 0 and episode > 0:
@@ -209,9 +210,9 @@ class BlobQAgent:
                 ################### RENDER #######################################
                 if self.render_every and episode % self.render_every == 0:
                     if reward == self.env.food_reward or reward == self.env.enemy_penalty:
-                        self.env.render(wait=self.render_wait + 400)  # freeze the image to make it easy for the viewer
+                        self.env.render(wait=self.render_wait + 400, label=self.render_label)  # freeze the image to make it easy for the viewer
                     else:
-                        self.env.render(wait=self.render_wait)
+                        self.env.render(wait=self.render_wait, label=self.render_label)
                 ##################################################################
 
                 total_reward += reward
@@ -296,9 +297,9 @@ def collect_trajectories(nr=6, dizzy=False, checkpoint='10x50000x200x__re(25, -3
     print("NOTICE: {0} trajectories were collected in {1} secs / {2} mins".format(nr, end - start, (end - start) / 60))
 
 
-def inspect_model(model, dizzy=False, render_wait=250):
+def inspect_model(model, dizzy=False, render_wait=250, render_label='expert', env=None):
     agent = BlobQAgent(loadQtable=model, render_wait=render_wait, render_every=1, episodes=100000, epsilon=0,
-                       env_respawn=True, dizzy_agent=dizzy)
+                       env_respawn=True, dizzy_agent=dizzy, observe_mode=True, render_label=render_label, env=env, silence=True)
     agent.run()
 
 
@@ -331,7 +332,7 @@ def execute_expert(model, dizzy, env_respawn=False, env=None, iter=10, episodes=
 # agent = BlobQAgent(checkpoint_name="pass3", episodes=50000, dizzy_agent=True, loadQtable="dizzy-Truex50000pass2__avg__-114.63__success rate__0.9562")
 # agent = BlobQAgent(checkpoint_name="pass4", episodes=50000, dizzy_agent=True, loadQtable="dizzy40%-Truex50000pass3__avg__-152.89__success rate__0.97656")
 # agent.run()
-#collect_trajectories(nr=1000000, checkpoint='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005', dizzy=True)
+# collect_trajectories(nr=10, checkpoint='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005', dizzy=True)
 # inspect_model(model="10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286", render_wait=50)
 # inspect_model(model="dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826", render_wait=50, dizzy=True)
-execute_expert('episodic_dizzy40%_False_50000pass4__avg__4.16__success_rate__0.97136', dizzy=False)
+# execute_expert('episodic_dizzy40%_False_50000pass4__avg__4.16__success_rate__0.97136', dizzy=False)
