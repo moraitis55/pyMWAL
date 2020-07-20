@@ -91,11 +91,12 @@ def opt_policy_and_feat_exp(THETA, F, GAMMA, w, INIT_FLAG, VV, test_env, tol=Non
         QA = QA.toarray()
         for i in range(S):
             dump = QA[:,i]
-            try:
-                P[i] = np.random.choice(np.where(dump == dump.max())[0])
-            except Exception:
-                P[i] = randrange(4)
-                exception_number += 1
+            P[i] = np.random.choice(np.where(dump == dump.max())[0])
+            #try:
+            #    P[i] = np.random.choice(np.where(dump == dump.max())[0])
+            #except Exception:
+            #    P[i] = randrange(4)
+            #    exception_number += 1
         P = P.astype(int)
 
         # P = QA.toarray().argmax(axis=0)
