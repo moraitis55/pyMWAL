@@ -42,9 +42,9 @@ def get_policy_expected_rwd(policy, exp_reward_function, env, env_respawn, episo
     return total_rwd
 
 
-def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=2500, pr=False, render=False, env_respawn=False,
-                   return_extra_statistics=False):
-    print("Executing\nmodel:{0}\ndizzy:{1}".format(path_to_policy, dizzy))
+def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=False, render_label='', dizzy=False, pr=False, env_respawn=False,
+                   return_extra_statistics=False, render_wait=200):
+    # print("Executing\nmodel:{0}\ndizzy:{1}".format(path_to_policy, dizzy))
 
     if env is None:
         env = GridEnv(dizzy=dizzy)
@@ -61,7 +61,9 @@ def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=25
     episodes_reward_counter = []
     episodes_success_counter = []
 
-    for episode in tqdm(range(episodes)):
+    # for episode in tqdm(range(episodes), disable=pr):
+    for episode in range(episodes):
+        print("{0} starting episode {1}".format(render_label, episode))
         env.reset()
 
         if pr:
@@ -83,11 +85,10 @@ def execute_policy(path_to_policy, policy_nr, env=None, dizzy=False, episodes=25
 
             ################### RENDER #######################################
             if render:
-                render_wait = 50
                 if reward == env.food_reward or reward == env.enemy_penalty:
-                    env.render(render_wait + 400)  # freeze the image to make it easy for the viewer
+                    env.render(wait=render_wait + 400, label=render_label)  # freeze the image to make it easy for the viewer
                 else:
-                    env.render(wait=render_wait)
+                    env.render(wait=render_wait, label=render_label)
             ##################################################################
 
             episode_reward_counter += reward
@@ -147,7 +148,7 @@ def save_plot(policy_data, policy_dir, label='reward'):
     plt.savefig(plot_dir + '/' + label)
 
 
-def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None, save_plot=False):
+def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None, save_plot_label=False):
     dir = os.path.join(path_to_policies, '*.csv')
     policies_list = glob(dir)
 
@@ -185,7 +186,7 @@ def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=F
         if rwd < rwd_min:
             rwd_min = rwd
 
-    if save_plot:
+    if save_plot_label:
         save_plot(policy_data=policies_rwds, policy_dir=path_to_policies)
 
     print("\n\nAverages between {0} policies:".format(policy_nr))
@@ -201,7 +202,7 @@ def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=F
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", help="model to execute")
-    parser.add_argument("-mx", help="max policies to execute", default=None)
+    parser.add_argument("-mx", help="max policies to execute", default=None, type=int)
     parser.add_argument("-p", help="policy to execute", required=False)
     parser.add_argument("--r", help="render", action="store_true")
     parser.add_argument("--d", help="dizzy agent", action="store_true")
@@ -212,5 +213,5 @@ if __name__ == '__main__':
     if args.p is not None:
        execute_policy(model=args.m, policy_nr=args.p, dizzy=args.d, render=args.r)
     else:
-       execute_policies(path_to_policies=args.m, exec_max=args.mx, dizzy=args.d, save_plot=args.s)
+       execute_policies(path_to_policies=args.m, exec_max=args.mx, dizzy=args.d, save_plot_label=args.s)
        

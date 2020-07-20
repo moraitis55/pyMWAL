@@ -152,9 +152,12 @@ class GridEnv:
             print("Done")
 
     def reset(self):
+        # remove the while to initialize player everywhere in grid
         self.player = Blob(self.size, self.vertical_movement, self.dizzy)
+        while self.player.y > 3:
+            self.player = Blob(self.size, self.vertical_movement, self.dizzy)
         self.food = Blob(self.size, self.vertical_movement, False)
-        while self.food == self.player:
+        while self.food == self.player or self.food.y < 7:
             self.food = Blob(self.size, self.vertical_movement, False)
         self.enemy = Blob(self.size, self.vertical_movement, False)
         while self.enemy == self.player or self.enemy == self.food:
@@ -195,10 +198,11 @@ class GridEnv:
 
         return new_observation, reward, done
 
-    def render(self, wait=1):
+    def render(self, label, wait=1):
         img = self.get_image()
         img = img.resize((300, 300))  # resizing so we can see our agent in all its glory.
         cv2.imshow("image", np.array(img))  # show it!
+        cv2.imshow(label, np.array(img))  # show it!
         cv2.waitKey(wait)
 
     # FOR CNN #
