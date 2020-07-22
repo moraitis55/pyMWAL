@@ -6,7 +6,7 @@ from gridworld.grid import GridEnv
 from transition import ThetaEstimator, load_files
 from write_policy import write_out_policies
 from mwal import mwal
-from exec_policies import execute_policies, save_plot
+from exec_policies import execute_policies, show_plot
 
 def count_file(file):
     print("Reading expert file..")
@@ -60,17 +60,17 @@ def run_mwal(env, expert_file, dizzy=False, env_respawn=False, m=None):
     # # Write out that policy
 
     dir = write_out_policies(PP, expert_file)
-    execute_policies(path_to_policies=dir, dizzy=dizzy, env_respawn=env_respawn, env=env)
-    save_plot(policy_data=RR, label='expected reward', policy_dir=dir)
+    execute_policies(path_to_policies=dir, dizzy=dizzy, env_respawn=env_respawn, env=env, save_plot=True)
+    show_plot(policy_data=RR, label='expected reward', policy_dir=dir)
 
 
 
 file1='episodic_dizzy40%_False_50000pass4__avg__4.16__success_rate__0.97136_episodes_collected90000.csv'
-file2='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005_episodes_collected2500.csv'
+file2='episodic_dizzy40%_True_50000pass4__avg__-38.5__success_rate__0.9005_episodes_collected1000000'
 
 if __name__ == '__main__':
-    environment = GridEnv(dizzy=False)
+    environment = GridEnv(dizzy=True)
     run_mwal(env=environment ,
-             expert_file=file1,
+             expert_file=file2,
              m=2500,
-             dizzy=False)
+             dizzy=True)

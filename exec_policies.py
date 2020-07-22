@@ -5,12 +5,14 @@ from matplotlib import pyplot as plt
 from gridworld.grid import GridEnv, GridState
 from glob import glob
 from tqdm import tqdm
+from statistics import mean, stdev
 
 MODEL = '../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected2500'
 MODEL2 = '../saved_files/10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286_episodes_collected1000000'
 MODEL3 = os.path.join('..', 'saved_files',
                       'dizzy40%-Truex50000pass4__avg__-147.17__success rate__0.97826_episodes_collected2500')
 FOLDER = 'policies'
+
 
 def get_policy_expected_rwd(policy, exp_reward_function, env, env_respawn, episodes=2500):
     print("testing policy for expected reward in {0} episodes".format(episodes))
@@ -42,8 +44,8 @@ def get_policy_expected_rwd(policy, exp_reward_function, env, env_respawn, episo
     return total_rwd
 
 
-def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=False, render_label='', dizzy=False, pr=False, env_respawn=False,
-                   return_extra_statistics=False, render_wait=200):
+def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=False, render_label='', dizzy=False,
+                   pr=False, env_respawn=False, render_wait=200):
     # print("Executing\nmodel:{0}\ndizzy:{1}".format(path_to_policy, dizzy))
 
     if env is None:
@@ -55,15 +57,11 @@ def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=Fa
     t1.close()
 
     episode_rewards = []
-    total_reward = 0
-    total_successes = 0
-
-    episodes_reward_counter = []
-    episodes_success_counter = []
+    episode_transitions = []
 
     # for episode in tqdm(range(episodes), disable=pr):
     for episode in range(episodes):
-        print("{0} starting episode {1}".format(render_label, episode))
+        # print("{0} starting episode {1}".format(render_label, episode))
         env.reset()
 
         if pr:
@@ -86,22 +84,24 @@ def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=Fa
             ################### RENDER #######################################
             if render:
                 if reward == env.food_reward or reward == env.enemy_penalty:
-                    env.render(wait=render_wait + 400, label=render_label)  # freeze the image to make it easy for the viewer
+                    env.render(wait=render_wait + 400,
+                               label=render_label)  # freeze the image to make it easy for the viewer
                 else:
                     env.render(wait=render_wait, label=render_label)
             ##################################################################
 
             episode_reward_counter += reward
-            total_reward += reward
 
             if pr:
                 if (step % 50 == 0 and step > 1) or done:  # print episode total reward every 50 steps
                     print("| [t = {}]\tReward = {:.4f}".format(step, episode_reward_counter))
 
             if done:
+
+                episode_transitions.append(step)
+
                 if reward == env.food_reward:
                     result = "\t\t< SUCCESS! >"
-                    total_successes += 1
                 elif reward == env.enemy_penalty:
                     result = "\t\t< FAILURE! >"
                 else:
@@ -114,41 +114,68 @@ def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=Fa
                 else:
                     break
 
-        episode_rewards.append(episode_reward_counter)
-        episodes_success_counter.append(total_successes)
 
-        episodes_reward_counter.append(total_reward)
-        success_rate = total_successes / episodes
+        episode_rewards.append(episode_reward_counter)
+
+    rewards_avg = mean(episode_rewards)
+    rewards_std = stdev(episode_rewards)
+
+    transitions_avg = mean(episode_transitions)
+    transitions_std = stdev(episode_transitions)
 
     if pr:
         print(
-            "\n\nPolicy: {0}\n Total reward collected: {1}\nTotal successes: {2}\nSuccess ratio: {3}".format(policy_nr,
-                                                                                                             total_reward,
-                                                                                                             total_successes,
-                                                                                                             success_rate))
-    if return_extra_statistics:
-        return total_reward, total_successes, success_rate, episodes_reward_counter, episode_rewards, episodes_success_counter
-    else:
-        return total_reward, total_successes, success_rate
+            "\n\nPolicy: {0}\n Avg reward collected: {1}\nAvg successes: {2}".format(policy_nr, rewards_avg,
+                                                                                     transitions_avg))
+    return rewards_avg, rewards_std, transitions_avg, transitions_std
 
 
-def save_plot(policy_data, policy_dir, label='reward'):
+def show_plot(policy_data, policy_std_data, trans_data, trans_std, policy_dir):
+
+    plt.ion()
     plot_dir = os.path.join(policy_dir, 'plots')
     if not os.path.exists(plot_dir):
         os.mkdir(plot_dir)
-    num_policies = policy_data.__len__()
-    y_val = [x for x in policy_data]
-    x_val = [x[0] for x in enumerate(policy_data)]
-    plt.plot(x_val, y_val)
-    plt.plot(x_val, y_val, 'or')
-    plt.xlabel('policy')
-    plt.ylabel('2500 episodes ' + label)
-    plt.grid(True)
-    plt.show()
-    plt.savefig(plot_dir + '/' + label)
+
+    labels = [str(policy[0]) for policy in enumerate(policy_data)]
+    x_pos = np.arange(len(labels))
+    CTEs = policy_data
+    error = policy_std_data
+
+    # Build the first plot
+    fig, ax = plt.subplots()
+    ax.bar(x_pos, CTEs, yerr=error, align='center', alpha=0.8, ecolor='black', capsize=10)
+    ax.set_ylabel('Average episode reward')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(labels)
+    ax.set_title("Average episode rewards")
+    ax.yaxis.grid(True)
+
+    # Save the figure and show
+    plt.tight_layout()
+    print('saving first plot')
+    plt.savefig(plot_dir + '/' + 'avg_Rewards.png')
+
+    CTEs2 = trans_data
+    error2 = trans_std
+
+    # Build the second plot
+    fig, ax = plt.subplots()
+    ax.bar(x_pos, CTEs2, yerr=error2, align='center', alpha=0.8, ecolor='black', capsize=10)
+    ax.set_ylabel('Average episode transitions')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(labels)
+    ax.set_title("Average episode transitions")
+    ax.yaxis.grid(True)
+
+    # Save the figure and show
+    plt.tight_layout()
+    print('saving second plot')
+    plt.savefig(plot_dir + '/' + 'avg_Transitions.png')
 
 
-def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None, save_plot_label=False):
+def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=False, episodes=2500, env=None,
+                     save_plot_label=False):
     dir = os.path.join(path_to_policies, '*.csv')
     policies_list = glob(dir)
 
@@ -157,43 +184,44 @@ def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=F
 
     policy_nr = policies_list.__len__()
 
-    rwd_count = 0
-    sc_count = 0
-    sr_count = 0
+    # a list of policies avg rewards and std used for plot.
+    avg_rwds = []
+    std_rwds = []
+    # a list of policies avg transitions and std
+    avg_trans = []
+    std_trans = []
 
-    # a list of policies total rewards used for count plot.
-    policies_rwds = []
-
-    rwd_max = float('-inf')
-    rwd_min = float('+inf')
     policy_max = None
+    rwd_max = float('-inf')
 
     if env is None:
         env = GridEnv(dizzy=dizzy)
 
     for i, policy in enumerate(tqdm(policies_list)):
-        rwd, sc, sr = execute_policy(path_to_policy=path_to_policies, policy_nr=i, env=env, env_respawn=env_respawn, episodes=episodes)
+        reward_avg, reward_std, trans_avg, trans_std = execute_policy(path_to_policy=path_to_policies, policy_nr=i, env=env, env_respawn=env_respawn,
+                                     episodes=episodes)
 
-        rwd_count += rwd
-        sc_count += sc
-        sr_count += sr
+        avg_rwds.append(reward_avg)
+        std_rwds.append(reward_std)
 
-        policies_rwds.append(rwd)
+        avg_trans.append(trans_avg)
+        std_trans.append(trans_std)
 
-        if rwd > rwd_max:
-            rwd_max = rwd
+        if reward_avg > rwd_max:
+            rwd_max = reward_avg
             policy_max = i
-        if rwd < rwd_min:
-            rwd_min = rwd
 
+    # todo: make new plots
     if save_plot_label:
-        save_plot(policy_data=policies_rwds, policy_dir=path_to_policies)
+        show_plot(policy_data=avg_rwds, policy_std_data= std_rwds, trans_data=avg_trans, trans_std=std_trans, policy_dir=path_to_policies)
+
+    avg_reward = mean(avg_rwds)
+    avg_transitions = mean(avg_trans)
 
     print("\n\nAverages between {0} policies:".format(policy_nr))
-    print("reward {0}".format(rwd_count / policy_nr))
-    print("successes {0}".format(sc_count / policy_nr))
-    print("success ratio {0}".format(sr_count / policy_nr))
-    print("\nBest policy is {0} with {1} reward\n\n".format(policy_max, rwd_max))
+    print("avg reward {0}".format(avg_reward))
+    print("avg transitions {0}".format(avg_transitions))
+    print("\nBest policy is {0} with {1} average reward\n\n".format(policy_max, rwd_max))
 
 
 # execute_policy(MODEL3,FOLDER,policy_nr=474,pr=True, render=True, dizzy_agent=True)
@@ -211,7 +239,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.p is not None:
-       execute_policy(model=args.m, policy_nr=args.p, dizzy=args.d, render=args.r)
+        execute_policy(model=args.m, policy_nr=args.p, dizzy=args.d, render=args.r)
     else:
-       execute_policies(path_to_policies=args.m, exec_max=args.mx, dizzy=args.d, save_plot_label=args.s)
-       
+        execute_policies(path_to_policies=args.m, exec_max=args.mx, dizzy=args.d, save_plot_label=args.s)
