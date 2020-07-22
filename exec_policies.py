@@ -218,6 +218,13 @@ def execute_policies(path_to_policies, exec_max=None, dizzy=False, env_respawn=F
     avg_reward = mean(avg_rwds)
     avg_transitions = mean(avg_trans)
 
+    # write a log
+    with open(os.path.join(path_to_policies, 'plots', 'log.txt'), 'a') as out:
+        out.write("Averages between {0} policies:\n".format(policy_nr))
+        out.write("avg reward {0}\n".format(avg_reward))
+        out.write("avg transitions {0}\n".format(avg_transitions))
+        out.write("Best policy is {0} with {1} average reward".format(policy_max, rwd_max))
+
     print("\n\nAverages between {0} policies:".format(policy_nr))
     print("avg reward {0}".format(avg_reward))
     print("avg transitions {0}".format(avg_transitions))
