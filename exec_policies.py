@@ -130,14 +130,25 @@ def execute_policy(path_to_policy, policy_nr, env=None, episodes=2500, render=Fa
     return rewards_avg, rewards_std, transitions_avg, transitions_std
 
 
-def show_plot(policy_data, policy_std_data, trans_data, trans_std, policy_dir):
+def show_plot(policy_data, policy_std_data, trans_data, trans_std, imported_labels=None, policy_dir=None, plot_dir=None):
 
     plt.ion()
-    plot_dir = os.path.join(policy_dir, 'plots')
+    if plot_dir is None:
+        plot_dir = os.path.join(policy_dir, 'plots')
     if not os.path.exists(plot_dir):
         os.mkdir(plot_dir)
 
-    labels = [str(policy[0]) for policy in enumerate(policy_data)]
+    # select a sample to plot
+    sample_nr = 50
+    policy_data = policy_data[:sample_nr]
+    policy_std_data = policy_std_data[:sample_nr]
+    trans_data = trans_data[:sample_nr]
+    trans_std = trans_std[:sample_nr]
+
+    if imported_labels is None:
+        labels = [str(policy[0]) for policy in enumerate(policy_data)]
+    else:
+        labels = imported_labels
     x_pos = np.arange(len(labels))
     CTEs = policy_data
     error = policy_std_data
@@ -148,6 +159,7 @@ def show_plot(policy_data, policy_std_data, trans_data, trans_std, policy_dir):
     ax.set_ylabel('Average episode reward')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(labels)
+    ax.tick_params(labelsize=4)
     ax.set_title("Average episode rewards")
     ax.yaxis.grid(True)
 
@@ -165,6 +177,7 @@ def show_plot(policy_data, policy_std_data, trans_data, trans_std, policy_dir):
     ax.set_ylabel('Average episode transitions')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(labels)
+    ax.tick_params(labelsize=4)
     ax.set_title("Average episode transitions")
     ax.yaxis.grid(True)
 

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from gridworld.grid import GridEnv, GridState
 from matplotlib import style
 from tqdm import tqdm
-from statistics import mean
+from statistics import mean, stdev
 import pandas as pd
 from tqdm import tqdm
 
@@ -153,9 +153,10 @@ class BlobQAgent:
                           dizzy=self.dizzy)
 
         episode_rewards = []
-        episode_successes = []
-        episode_successes_counter = []
-        success_counter = 0
+        episode_transitions = []
+        # episode_successes = []
+        # episode_successes_counter = []
+        # success_counter = 0
 
         episode_reward_counter = []
         reward_counter = 0
@@ -222,6 +223,7 @@ class BlobQAgent:
                     self._printif("| [t = {}]\tReward = {:.4f}".format(step, total_reward))
 
                 if done:
+                    episode_transitions.append(step)
                     if reward == self.env.food_reward:
                         result = "\t\t< SUCCESS! >"
                         total_success += 1
@@ -236,17 +238,23 @@ class BlobQAgent:
                     else:
                         break
 
-            if total_success > 0:
-                success_counter += total_success
-            episode_successes_counter.append(success_counter)
+            # if total_success > 0:
+            #     success_counter += total_success
+            # episode_successes_counter.append(success_counter)
 
             episode_rewards.append(total_reward)
-            episode_successes.append(total_success)
-            episode_reward_counter.append(reward_counter)
+            # episode_successes.append(total_success)
+            # episode_reward_counter.append(reward_counter)
             self.epsilon *= self.epsDecay
 
-        self.model_avg_reward = round(mean(episode_rewards), 2)
-        self.model_success_rate = success_counter / self.episodes
+        # self.model_avg_reward = round(mean(episode_rewards), 2)
+        # self.model_success_rate = success_counter / self.episodes
+
+        rewards_avg = mean(episode_rewards)
+        rewards_std = stdev(episode_rewards)
+
+        transitions_avg = mean(episode_transitions)
+        transitions_std = stdev(episode_transitions)
 
         fig_out_name = None
         if self.checkpoint_name:
@@ -262,31 +270,31 @@ class BlobQAgent:
             with open(out_name + ".pickle", "wb") as f:
                 pickle.dump(self.Q, f)
 
-        if self.stats_every:
+        # if self.stats_every:
+        #
+        #     moving_avg_reward = np.convolve(episode_rewards, np.ones((self.stats_every,)) / self.stats_every,
+        #                                     mode="valid")
+        #     plt.plot([i for i in range(len(moving_avg_reward))], moving_avg_reward)
+        #     plt.ylabel("Average reward in {0} episodes window".format(str(self.stats_every)))
+        #     plt.xlabel("Episode")
+        #     if fig_out_name:  # save figure
+        #         name = fig_out_name + "__rewardChart" + ".png"
+        #         plt.savefig(name, bbox_inches='tight')
+        #     plt.show()
+        #
+        #     moving_avg_success = np.convolve(episode_successes, np.ones((self.stats_every,)) / self.stats_every,
+        #                                      mode="valid")
+        #     plt.plot([i for i in range(len(moving_avg_success))], moving_avg_success)
+        #     plt.ylabel("Average successes in {0} episodes window".format(str(self.stats_every)))
+        #     plt.xlabel("Episode")
+        #     if fig_out_name:  # save figure
+        #         name = fig_out_name + "__successChart" + '.png'
+        #         plt.savefig(name, bbox_inches='tight')
+        #     plt.show()
 
-            moving_avg_reward = np.convolve(episode_rewards, np.ones((self.stats_every,)) / self.stats_every,
-                                            mode="valid")
-            plt.plot([i for i in range(len(moving_avg_reward))], moving_avg_reward)
-            plt.ylabel("Average reward in {0} episodes window".format(str(self.stats_every)))
-            plt.xlabel("Episode")
-            if fig_out_name:  # save figure
-                name = fig_out_name + "__rewardChart" + ".png"
-                plt.savefig(name, bbox_inches='tight')
-            plt.show()
-
-            moving_avg_success = np.convolve(episode_successes, np.ones((self.stats_every,)) / self.stats_every,
-                                             mode="valid")
-            plt.plot([i for i in range(len(moving_avg_success))], moving_avg_success)
-            plt.ylabel("Average successes in {0} episodes window".format(str(self.stats_every)))
-            plt.xlabel("Episode")
-            if fig_out_name:  # save figure
-                name = fig_out_name + "__successChart" + '.png'
-                plt.savefig(name, bbox_inches='tight')
-            plt.show()
-
-        print("Total rewards in {0} episodes: {1}\nTotal successes:{2}".format(self.episodes, sum(episode_rewards),
-                                                                               sum(episode_successes)))
-        return episode_rewards, episode_successes, episode_reward_counter, episode_successes_counter
+        # print("Total rewards in {0} episodes: {1}\nTotal successes:{2}".format(self.episodes, sum(episode_rewards),
+        #                                                                        sum(episode_successes)))
+        return rewards_avg, rewards_std, transitions_avg, transitions_std
 
 
 def collect_trajectories(nr=6, dizzy=False, checkpoint='10x50000x200x__re(25, -300, -1)__pass4__avg__4.41__success rate__0.97286'):
@@ -301,6 +309,12 @@ def inspect_model(model, dizzy=False, render_wait=250, render_label='expert', en
     agent = BlobQAgent(loadQtable=model, render_wait=render_wait, render_every=1, episodes=100000, epsilon=0,
                        env_respawn=True, dizzy_agent=dizzy, observe_mode=True, render_label=render_label, env=env, silence=True)
     agent.run()
+
+def execute_expert2(model, env=None):
+    agent = BlobQAgent(loadQtable=model, silence=True, epsilon=0, stats_every=None, inspect=True, env=env, episodes=2500)
+
+    rewards_avg, rewards_std, trans_avg, trans_std = agent.run()
+    return rewards_avg, rewards_std, trans_avg, trans_std
 
 
 def execute_expert(model, dizzy, env_respawn=False, env=None, iter=10, episodes=2500):
